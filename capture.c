@@ -27,7 +27,7 @@
 #include <linux/videodev2.h>
 
 #include "capture.h"
-/* #include "v4l2_compat.h" */
+#include "v4l2_compat.h"
 
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
 

@@ -1,6 +1,10 @@
 #ifndef V4L2_COMPAT_IS_IN
 #define V4L2_COMPAT_IS_IN
 
+#include <linux/version.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,19)
+
 /*
  * Frame size and frame rate enumeration
  *
@@ -38,7 +42,7 @@ struct v4l2_frmsizeenum
         union {					/* Frame size */
 		struct v4l2_frmsize_discrete	discrete;
 		struct v4l2_frmsize_stepwise	stepwise;
-	} u;
+	};
 
 	__u32   reserved[2];			/* Reserved space for future use */
 };
@@ -68,13 +72,16 @@ struct v4l2_frmivalenum
 	union {					/* Frame interval */
 		struct v4l2_fract		discrete;
 		struct v4l2_frmival_stepwise	stepwise;
-	} u;
+	};
 
 	__u32	reserved[2];			/* Reserved space for future use */
 };
 
 #define VIDIOC_ENUM_FRAMESIZES		_IOWR ('V', 74, struct v4l2_frmsizeenum)
 #define VIDIOC_ENUM_FRAMEINTERVALS	_IOWR ('V', 75, struct v4l2_frmivalenum)
+
+
+#endif  /* 2.6.19 defines */
 
 #endif 
 
