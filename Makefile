@@ -17,8 +17,8 @@ clean :
 	- rm -f *.[do] *~ tinycamd tinycamctl tinycamctl.cgi
 
 install : 
-	mkdir -p $(PKG_INSTALL_DIR)/usr/bin/
-	$(INSTALL) tinycamd $(PKG_INSTALL_DIR)/usr/bin/
-	$(INSTALL) tinycamctl $(PKG_INSTALL_DIR)/usr/bin/
+	mkdir -p $(DESTDIR)/usr/bin/
+	install tinycamd $(DESTDIR)/usr/bin/
+	install tinycamctl $(DESTDIR)/usr/bin/
 
 include $(wildcard *.d)
