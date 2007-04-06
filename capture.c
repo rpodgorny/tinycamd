@@ -27,7 +27,7 @@
 #include <linux/videodev2.h>
 
 #include "capture.h"
-#include "v4l2_compat.h"
+/* #include "v4l2_compat.h" */
 
 #define CLEAR(x) memset (&(x), 0, sizeof (x))
 
@@ -591,14 +591,14 @@ void init_device (void)
 	      if ( (xioctl(fd, VIDIOC_ENUM_FRAMESIZES, &sdesc)) >= 0) {
 		switch( sdesc.type) {
 		case V4L2_FRMSIZE_TYPE_DISCRETE:
-		  fprintf(stderr,"    %dx%d\n", sdesc.u.discrete.width, sdesc.u.discrete.height);
+		  fprintf(stderr,"    %dx%d\n", sdesc.discrete.width, sdesc.discrete.height);
 		  break;
 		case V4L2_FRMSIZE_TYPE_STEPWISE:
 		case V4L2_FRMSIZE_TYPE_CONTINUOUS:
 		  fprintf(stderr,"    %dx%d to %dx%d by %d,%d\n",
-			  sdesc.u.stepwise.min_width, sdesc.u.stepwise.min_height,
-			  sdesc.u.stepwise.max_width, sdesc.u.stepwise.max_height,
-			  sdesc.u.stepwise.step_width, sdesc.u.stepwise.step_height);
+			  sdesc.stepwise.min_width, sdesc.stepwise.min_height,
+			  sdesc.stepwise.max_width, sdesc.stepwise.max_height,
+			  sdesc.stepwise.step_width, sdesc.stepwise.step_height);
 		  break;
 		default:
 		  fprintf(stderr,"    unknown frame size type: %d\n", sdesc.type);
@@ -610,19 +610,19 @@ void init_device (void)
 		  memset(&idesc,0,sizeof idesc);
 		  idesc.index = rat;
 		  idesc.pixel_format = sdesc.pixel_format;
-		  idesc.width = sdesc.u.discrete.width;  // danger: this is the min sizes on stepwise and continuous
-		  idesc.height = sdesc.u.discrete.height;
+		  idesc.width = sdesc.discrete.width;  // danger: this is the min sizes on stepwise and continuous
+		  idesc.height = sdesc.discrete.height;
 		  if ( xioctl(fd,VIDIOC_ENUM_FRAMEINTERVALS,&idesc) >= 0) {
 		    switch( idesc.type) {
 		    case V4L2_FRMIVAL_TYPE_DISCRETE:
-		      fprintf(stderr,"      %d/%d frames/sec\n", idesc.u.discrete.denominator, idesc.u.discrete.numerator);
+		      fprintf(stderr,"      %d/%d frames/sec\n", idesc.discrete.denominator, idesc.discrete.numerator);
 		      break;
 		    case V4L2_FRMIVAL_TYPE_STEPWISE:
 		    case V4L2_FRMIVAL_TYPE_CONTINUOUS:
 		      fprintf(stderr,"      %d/%d to %d/%d frames/sec by %d/%d\n", 
-			      idesc.u.stepwise.min.denominator, idesc.u.stepwise.min.numerator,
-			      idesc.u.stepwise.max.denominator, idesc.u.stepwise.max.numerator,
-			      idesc.u.stepwise.step.denominator, idesc.u.stepwise.step.numerator);
+			      idesc.stepwise.min.denominator, idesc.stepwise.min.numerator,
+			      idesc.stepwise.max.denominator, idesc.stepwise.max.numerator,
+			      idesc.stepwise.step.denominator, idesc.stepwise.step.numerator);
 		      break;
 		    }
 		  } else {
