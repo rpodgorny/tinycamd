@@ -1,0 +1,76 @@
+BODY {
+  margin: 0px 0px 0px 0px;
+}
+
+div#controls
+{
+}
+
+img.frame
+{
+	border-width: 0;
+	opacity: 0.5;
+	filter: alpha(opacity=50);
+}
+
+div.viewer
+{
+}
+
+div#overlay
+{
+	position: absolute;
+	padding: 9px;
+	padding-left: 0px;
+	top: 40px;
+	left: 0px;
+	z-index: 10;
+	color: white;
+	font-family: sans-serif;
+}
+
+div.controls
+{
+	background: black;
+	padding: 2px;
+	opacity: 0.5;
+	filter: alpha(opacity=5);
+	position: relative;
+}
+
+div.control
+{
+	position: relative;  // this is required to make it really be an outer box
+	top: 0px;
+	left: 0px;
+}
+
+img.button
+{
+	opacity: 0.01;
+	filter: alpha(opacity=1);
+}
+
+a#controlhandle {
+	display: block;
+	background: url(frame-handle.png) no-repeat;
+	opacity: 0.5;
+	filter: alpha(opacity=50);
+	position: relative;   /* Safari needs this or it becomes mostly unclickable, go figure */
+	left: 0;
+	top:0;
+}
+
+a#controlhandle:hover {
+	display: block;
+	background: url(frame-handle.png) no-repeat;
+	opacity: 0.75;
+	filter: alpha(opacity=75);
+}
+
+a#controlhandle:active {
+	display: block;
+	background: url(frame-handle-a.png) no-repeat;
+	opacity: 1.0;
+	filter: alpha(opacity=100);
+}
