@@ -11,9 +11,9 @@ tinycamctl : tinycamctl.o
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 tinycamctl.cgi : tinycamctl
-	cp $^ $@
+	ln $^ $@
 
 clean : 
-	- rm -f *.[do] *~ tinycamd tinycamctl
+	- rm -f *.[do] *~ tinycamd tinycamctl tinycamctl.cgi
 
 include $(wildcard *.d)
