@@ -1,24 +1,17 @@
 
 CFLAGS = -Wall -Werror -g -MMD $(CLFAGS)
+LDLIBS += -lfcgi -lpthread
+all : tinycamd 
 
-all : tinycamd tinycamctl tinycamctl.cgi
 
-
-tinycamd : tinycamd.o capture.o
+tinycamd : tinycamd.o options.o device.o frame.o controls.o
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
-tinycamctl : tinycamctl.o 
-	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
-
-tinycamctl.cgi : tinycamctl
-	ln $^ $@
 
 clean : 
-	- rm -f *.[do] *~ tinycamd tinycamctl tinycamctl.cgi
+	- rm -f *.[do] *~ tinycamd 
 
 install : 
 	mkdir -p $(DESTDIR)/usr/bin/
 	install tinycamd $(DESTDIR)/usr/bin/
-	install tinycamctl $(DESTDIR)/usr/bin/
 
 include $(wildcard *.d)

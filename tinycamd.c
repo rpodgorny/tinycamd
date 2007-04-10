@@ -1,102 +1,118 @@
-#include <stdio.h>
+/*
+ * threaded.c -- A simple multi-threaded FastCGI application.
+ */
+
+#include <fcgi_config.h>
+
+#include <pthread.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <stdlib.h>
-#include <getopt.h>
-#include <errno.h>
+#include <fcgiapp.h>
+#include <string.h>
+#include <sys/wait.h>
 
-#include "capture.h"
+#include "tinycamd.h"
 
-static void
-usage                           (FILE *                 fp,
-                                 int                    argc,
-                                 char **                argv)
+#define THREAD_COUNT 20
+
+static pthread_mutex_t counts_mutex = PTHREAD_MUTEX_INITIALIZER;
+static int counts[THREAD_COUNT];
+static int sock;
+
+static void do_status_request( FCGX_Request *req, int thread_id)
 {
-        fprintf (fp,
-                 "Usage: %s [options]\n\n"
-                 "Options:\n"
-                 "-d | --device name   Video device name [/dev/video]\n"
-                 "-h | --help          Print this message\n"
-                 "-m | --mmap          Use memory mapped buffers\n"
-                 "-r | --read          Use read() calls\n"
-                 "-u | --userp         Use application allocated buffers\n"
-                 "",
-		 argv[0]);
+    char *server_name;
+    pid_t pid = getpid();
+    int i;
+
+    server_name = FCGX_GetParam("SERVER_NAME", req->envp);
+    
+    FCGX_FPrintF(req->out,
+		 "Content-type: text/html\r\n"
+		 "\r\n"
+		 "<title>FastCGI Hello! (multi-threaded C, fcgiapp library)</title>"
+		 "<h1>FastCGI Hello! (multi-threaded C, fcgiapp library)</h1>"
+		 "Thread %d, Process %ld<p>"
+		 "Request counts for %d threads running on host <i>%s</i><p><code>",
+		 thread_id, pid, THREAD_COUNT, server_name ? server_name : "?");
+    
+    pthread_mutex_lock(&counts_mutex);
+    ++counts[thread_id];
+    for (i = 0; i < THREAD_COUNT; i++)
+	FCGX_FPrintF(req->out, "%5d " , counts[i]);
+    pthread_mutex_unlock(&counts_mutex);
 }
 
-static const char short_options [] = "d:hmru";
-
-static const struct option
-long_options [] = {
-        { "device",     required_argument,      NULL,           'd' },
-        { "help",       no_argument,            NULL,           'h' },
-        { "mmap",       no_argument,            NULL,           'm' },
-        { "read",       no_argument,            NULL,           'r' },
-        { "userp",      no_argument,            NULL,           'u' },
-        { 0, 0, 0, 0 }
-};
-
-int
-main                            (int                    argc,
-                                 char **                argv)
+static void put_image(const struct chunk *c, void *arg)
 {
-	int io = IO_METHOD_MMAP;
-        char *dev_name = "/dev/video0";
+    FCGX_Request *req = (FCGX_Request *)arg;
 
-        for (;;) {
-                int index;
-                int c;
-                
-                c = getopt_long (argc, argv,
-                                 short_options, long_options,
-                                 &index);
+    FCGX_FPrintF(req->out, "Content-type: image/jpeg\r\n"
+		 "\r\n");
+    while( c->data) {
+	FCGX_PutStr( c->data, c->length, req->out);
+	c++;
+    }
+}
 
-                if (-1 == c)
-                        break;
+static void *handle_requests(void *a)
+{
+    int rc, thread_id = (int)a;
+    FCGX_Request request;
+    char *path_info;
 
-                switch (c) {
-                case 0: /* getopt_long() flag */
-                        break;
+    FCGX_InitRequest(&request, sock, 0);
 
-                case 'd':
-                        dev_name = optarg;
-                        break;
+    for (;;)
+    {
+        static pthread_mutex_t accept_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-                case 'h':
-                        usage (stdout, argc, argv);
-                        exit (EXIT_SUCCESS);
+        /* Some platforms require accept() serialization, some don't.. */
+        pthread_mutex_lock(&accept_mutex);
+        rc = FCGX_Accept_r(&request);
+        pthread_mutex_unlock(&accept_mutex);
 
-                case 'm':
-                        io = IO_METHOD_MMAP;
-			break;
+        if (rc < 0)
+            break;
 
-                case 'r':
-                        io = IO_METHOD_READ;
-			break;
+	path_info = FCGX_GetParam("PATH_INFO", request.envp);
 
-                case 'u':
-                        io = IO_METHOD_USERPTR;
-			break;
+	if ( strcmp(path_info,"/status")==0) {
+	    do_status_request(&request, thread_id);
+	} else {
+	    with_current_frame( &put_image, &request);
+	}
 
-                default:
-                        usage (stderr, argc, argv);
-                        exit (EXIT_FAILURE);
-                }
-        }
+        FCGX_Finish_r(&request);
+    }
 
-        open_device (dev_name, io);
+    return NULL;
+}
 
-        init_device ();
+int main(int argc, char **argv)
+{
+    int i;
+    pthread_t id[THREAD_COUNT];
+    pthread_t captureThread;
 
-        start_capturing ();
+    do_options(argc, argv);
 
-        mainloop ();
+    open_device();
+    init_device();
+    start_capturing();
 
-        stop_capturing ();
+    pthread_create( &captureThread, NULL, main_loop, NULL);
 
-        uninit_device ();
+    FCGX_Init();
+    sock = FCGX_OpenSocket(":3636",20);
 
-        close_device ();
+    for (i = 1; i < THREAD_COUNT; i++)
+        pthread_create(&id[i], NULL, handle_requests, (void*)i );
 
-        exit (EXIT_SUCCESS);
+    for(;;) sleep(100);
 
-        return 0;
+    close_device();
+
+    return 0;
 }
