@@ -56,6 +56,35 @@ static void put_image(const struct chunk *c, void *arg)
     }
 }
 
+static void stream_image( FCGX_Request *req)
+{
+    FCGX_FPrintF(req->out, 
+		 "Cache-Control: no-cache\r\n"
+		 "Pragma: no-cache\r\n"
+		 "Expires: Thu, 01 Dec 1994 16:00:00 GMT\r\n"
+		 "Connection: close\r\n"
+		 "Content-Type: multipart/x-mixed-replace; boundary=--myboundary\r\n"
+		 "\r\n");
+    for(;;) {
+	FCGX_FPrintF(req->out, "--myboundary\r\n");
+	with_next_frame( &put_image, req);
+    }
+}
+
+static void do_video_call( FCGX_Request *req, video_action action)
+{
+    char buf[8192];
+
+    with_device( action, buf, sizeof(buf));
+    FCGX_FPrintF(req->out,
+		 "Cache-Control: no-cache\r\n"
+		 "Pragma: no-cache\r\n"
+		 "Expires: Thu, 01 Dec 1994 16:00:00 GMT\r\n"
+		 "Content-Type: text/xml\r\n"
+		 "Content-Length: %d\r\n"
+		 "\r\n%s", strlen(buf), buf);
+}
+
 static void *handle_requests(void *a)
 {
     int rc, thread_id = (int)a;
@@ -80,6 +109,10 @@ static void *handle_requests(void *a)
 
 	if ( strcmp(path_info,"/status")==0) {
 	    do_status_request(&request, thread_id);
+	} else if ( strcmp(path_info,"/image.replace")==0) {
+	    stream_image(&request);
+	} else if ( strcmp(path_info,"/controls")==0) {
+	    do_video_call( &request, list_controls);
 	} else {
 	    with_current_frame( &put_image, &request);
 	}
