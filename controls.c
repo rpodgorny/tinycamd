@@ -27,7 +27,26 @@ static char *xml(unsigned char *s)
     return buf;
 }
 
-int list_controls( int fd, char *buf, int size)
+int set_control( int fd, char *buf, int size, int cid, int val)
+{
+    struct v4l2_control con = {
+	.id = cid,
+    };
+    
+    if ( xioctl( fd, VIDIOC_G_CTRL, &con)) {
+	fprintf(stderr,"set_control failed to check value: %s\n", strerror(errno));
+	return snprintf( buf, size, "failed to get check value: %s\n", strerror(errno));
+    }
+
+    con.value = val;
+    if ( xioctl( fd, VIDIOC_S_CTRL, &con)) {
+	fprintf(stderr,"set_control failed to set value: %s\n", strerror(errno));
+	return snprintf( buf, size, "failed to get set value: %s\n", strerror(errno));
+    }
+    return snprintf(buf, size, "OK");
+}
+
+int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 {
     int cid;
     int used = 0;
@@ -40,12 +59,22 @@ int list_controls( int fd, char *buf, int size)
 	struct v4l2_queryctrl queryctrl = {
 	    .id = cid,
 	};
+	int rc, try;
 
-	if (0 == xioctl (fd, VIDIOC_QUERYCTRL, &queryctrl)) {
+	for ( try = 0; try < 10; try++) {
+	    rc = xioctl (fd, VIDIOC_QUERYCTRL, &queryctrl);
+	    if ( rc != 0 && errno == EIO) {
+		fprintf(stderr,"Repolling for control %d\n", cid);
+		continue;
+	    }
+	    break;
+	}
+		
+	if ( rc==0 ) {
 	    struct v4l2_control con = {
 		.id = queryctrl.id,
 	    };
-
+	    
 	    if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) continue;
 
 	    if ( xioctl( fd, VIDIOC_G_CTRL, &con)) {
@@ -55,16 +84,16 @@ int list_controls( int fd, char *buf, int size)
 	    if (queryctrl.type == V4L2_CTRL_TYPE_MENU) {
 		;//FCGX_PrintF(":menu.\n");
 	    } else {
-		used += snprintf( buf+used, size-used, "<range_control name=%s minimum=\"%d\" maximum=\"%d\" by=\"%d\" default=\"%d\" current=\"%d\" "
-		       "%s%s%s%s%s%s />\n",
-		       xml(queryctrl.name), 
-		       queryctrl.minimum, queryctrl.maximum, queryctrl.step, queryctrl.default_value, con.value,
-		       (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) ? " disabled=\"1\"" : "",
-		       (queryctrl.flags & V4L2_CTRL_FLAG_GRABBED) ? " grabbed=\"1\"" : "",
-		       (queryctrl.flags & V4L2_CTRL_FLAG_READ_ONLY) ? " readonly=\"1\"" : "",
-		       (queryctrl.flags & V4L2_CTRL_FLAG_UPDATE) ? " update=\"1\"" : "",
-		       (queryctrl.flags & V4L2_CTRL_FLAG_INACTIVE) ? " inactive=\"1\"" : "",
-		       (queryctrl.flags & V4L2_CTRL_FLAG_SLIDER) ? " slider=\"1\"" : "" );
+		used += snprintf( buf+used, size-used, "<range_control name=%s minimum=\"%d\" maximum=\"%d\" by=\"%d\" default=\"%d\" current=\"%d\" cid=\"%d\""
+				  "%s%s%s%s%s%s />\n",
+				  xml(queryctrl.name), 
+				  queryctrl.minimum, queryctrl.maximum, queryctrl.step, queryctrl.default_value, con.value, con.id,
+				  (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) ? " disabled=\"1\"" : "",
+				  (queryctrl.flags & V4L2_CTRL_FLAG_GRABBED) ? " grabbed=\"1\"" : "",
+				  (queryctrl.flags & V4L2_CTRL_FLAG_READ_ONLY) ? " readonly=\"1\"" : "",
+				  (queryctrl.flags & V4L2_CTRL_FLAG_UPDATE) ? " update=\"1\"" : "",
+				  (queryctrl.flags & V4L2_CTRL_FLAG_INACTIVE) ? " inactive=\"1\"" : "",
+				  (queryctrl.flags & V4L2_CTRL_FLAG_SLIDER) ? " slider=\"1\"" : "" );
 	    }
 	} else {
 	    if (errno == EINVAL && cid < V4L2_CID_LASTP1 ) continue;

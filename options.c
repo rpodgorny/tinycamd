@@ -10,8 +10,10 @@ char *videodev_name = "/dev/video0";
 int video_width = 640;
 int video_height = 480;
 int verbose = 0;
+int quality = 100;
+int fps = 5;
 
-static const char short_options [] = "d:hmruv";
+static const char short_options [] = "d:hmruvq:s:f:";
 
 static const struct option
 long_options [] = {
@@ -22,6 +24,8 @@ long_options [] = {
         { "userp",      no_argument,            NULL,           'u' },
 	{ "size",       required_argument,      NULL,           's' },
 	{ "verbose",    no_argument,            NULL,           'v' },
+	{ "quality",    required_argument,      NULL,           'q' },
+	{ "fps",        required_argument,      NULL,           'f' },
         { 0, 0, 0, 0 }
 };
 
@@ -32,6 +36,8 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "Options:\n"
 	     "-d | --device name   Video device name [/dev/video]\n"
 	     "-s | --size widxhgt  Size, e.g. 640x480\n"
+	     "-f | --fps num       Frames per second\n"
+	     "-q | --quality num   JPEG quality, 0-100\n"
 	     "-h | --help          Print this message\n"
 	     "-m | --mmap          Use memory mapped buffers\n"
 	     "-r | --read          Use read() calls\n"
@@ -62,6 +68,12 @@ void do_options(int argc, char **argv)
 		usage(stderr, argc, argv);
 		exit(EXIT_FAILURE);
 	    }
+	  case 'q':
+	    sscanf( optarg,"%d", &quality);
+	    break;
+	  case 'f':
+	    sscanf( optarg,"%d", &fps);
+	    break;
 	  case 'h':
 	    usage (stdout, argc, argv);
 	    exit (EXIT_SUCCESS);

@@ -410,9 +410,31 @@ void init_device (void)
 	    .fmt.pix.pixelformat = V4L2_PIX_FMT_MJPEG,
 	    .fmt.pix.field = V4L2_FIELD_INTERLACED,
 	};
+	struct v4l2_jpegcompression comp = {
+	    .quality = quality,
+	};
+	struct v4l2_streamparm strm = {
+	    .type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
+	};
 
 	if (-1 == xioctl (videodev, VIDIOC_S_FMT, &fmt)) errno_exit ("VIDIOC_S_FMT");
-	
+
+	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) errno_exit("VIDIOC_G_JPEGCOMP");
+	comp.quality = quality;
+	if (-1 == xioctl( videodev, VIDIOC_S_JPEGCOMP, &comp)) errno_exit("VIDIOC_S_JPEGCOMP");
+	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) errno_exit("VIDIOC_G_JPEGCOMP");
+	fprintf(stderr,"jpegcomp quality came out at %d\n", comp.quality);
+
+	if (-1 == xioctl( videodev, VIDIOC_G_PARM, &strm)) errno_exit("VIDIOC_G_PARM");
+	strm.parm.capture.timeperframe.numerator = 1;
+	if ( strm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME) {
+	    fprintf(stderr,"fps=%d\n", fps);
+	    strm.parm.capture.timeperframe.denominator = fps;
+	    if (-1 == xioctl( videodev, VIDIOC_S_PARM, &strm)) errno_exit("VIDIOC_S_PARM");
+	    fprintf(stderr,"fps came out %d/%d\n", 
+		    strm.parm.capture.timeperframe.numerator,
+		    strm.parm.capture.timeperframe.denominator);
+	}
 	/* Note VIDIOC_S_FMT may change width and height. */
 	
 	/* Buggy driver paranoia. */
@@ -473,12 +495,12 @@ void open_device ( void)
 }
 
 
-int with_device( video_action func, char *buf, int size)
+int with_device( video_action func, char *buf, int size, int cid, int val)
 {
     int r;
 
     pthread_mutex_lock(&video_mutex);
-    r = (*func)(videodev, buf, size);
+    r = (*func)(videodev, buf, size, cid, val);
     pthread_mutex_unlock(&video_mutex);
     return r;
 }

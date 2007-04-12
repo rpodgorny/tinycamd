@@ -33,16 +33,22 @@ div.controls
 {
 	background: black;
 	padding: 2px;
-	opacity: 0.5;
-	filter: alpha(opacity=5);
+	opacity: 0.6;
+	filter: alpha(opacity=66);
 	position: relative;
 }
 
 div.control
 {
-	position: relative;  // this is required to make it really be an outer box
+	position: relative;
 	top: 0px;
 	left: 0px;
+}
+
+div.rangecontrol
+{
+	position: relative;
+	text-align: right;
 }
 
 img.button

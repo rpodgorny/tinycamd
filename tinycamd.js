@@ -13,6 +13,7 @@ function dump(obj,tag) {
         switch( typeof(obj)) {
           case "object":
             log(obj.toString);
+	    log(typeof(obj));
 	    log(" .x = "+obj.x);
             for ( i in obj) log("  "+i+" = "+obj[i]);
             break;
@@ -39,6 +40,20 @@ function log(message) {
     var logLine = log.window_.document.createElement("div");
     logLine.appendChild(log.window_.document.createTextNode(message));
     log.window_.document.body.appendChild(logLine);
+}
+
+//
+// Crappy utility to accomodate the beast of redmond
+//
+function createRequestObject() {
+    var ro;
+    var browser = navigator.appName;
+    if(browser == "Microsoft Internet Explorer"){
+        ro = new ActiveXObject("Microsoft.XMLHTTP");
+    }else{
+        ro = new XMLHttpRequest();
+    }
+    return ro;
 }
 
 //
@@ -109,7 +124,7 @@ function AddThumbs()
 	    log("ppos=("+ppos[0]+","+ppos[1]+")");
 	    t.style.position = "absolute";
 	    t.style.top = pos[1] - ppos[1] - (t.height-e.height)/2+"px";
-	    t.style.left = pos[0] - ppos[0]+"px";
+	    t.style.left = pos[0] - ppos[0] - t.width/2 + (e.currentValue * e.width / (e.maximum - e.minimum)) +"px";
 	    t.style.cursor = "pointer";
 	    t.sliderBar = e;
 	    t.onmousedown = ThumbDown;
@@ -127,6 +142,14 @@ function BuildFrame()
     var height = d.offsetHeight;
     var right = pos[0] + width;
     var bottom = pos[1] + height;
+
+    // Strip the old frame
+    var old = d.getElementsByTagName('img');
+    for ( var i = old.length-1; i >= 0; i--) {
+	if ( old[i].className == "frame") d.removeChild(old[i]);
+    }
+    var oldThumb = document.getElementById("controlhandle");
+    if ( oldThumb) d.removeChild(oldThumb);
 
     var make = function( file, left,top, wid, hgt) {
 	var t = document.createElement('img');
@@ -203,6 +226,11 @@ function ThumbDown(e)
     document.onmouseup = function() {
 	document.onmouseup = oldMouseUp;
 	document.onmousemove = oldMouseMove;
+
+	var http = createRequestObject();
+	http.open('get', 'tinycamd/set?'+s.cid+'='+s.currentValue);
+	log('tinycamd/set?'+s.cid+'='+s.currentValue);
+	http.send(null);
     };
     
     // take some event handlers
@@ -216,7 +244,13 @@ function ThumbDown(e)
 	if ( x > rightLimit) x = rightLimit;
     
 	//    log("("+leftLimit+","+rightLimit+")"+initX+" n="+nx);
-    
+
+	var newValue = Math.round(s.minimum + (x-leftLimit)*s.maximum/(rightLimit-leftLimit));
+	
+	if ( newValue != s.currentValue) {
+	    s.currentValue = newValue;
+	    log("value: "+newValue);
+	}
 	var nx = x - baseX - cdist;
 	//if ( nx == thumb.style.left ) return false;
 	thumb.style.left = nx+"px";
@@ -242,7 +276,7 @@ function bail(e)
 {
     if ( !e) e = window.event;
     
-    log("bailing");
+    //log("bailing");
     
     e.stopPropagation();
     e.preventDefault();
@@ -251,9 +285,68 @@ function bail(e)
 }
 
 
+function LoadControls() {
+    var http = createRequestObject();
+
+    log("hello");
+    http.open('get', 'tinycamd/controls');
+    http.onreadystatechange = 
+	function() {
+	    if ( http.readyState != 4) return;
+	    document.getElementById('controls').innerHTML = http.responseText;
+	    
+	    var cc = document.getElementById('cameracontrols');
+
+	    while( cc.childNodes.length > 0) {
+		cc.removeChild(cc.childNodes[0]);
+	    }
+	    
+	    var ranges = http.responseXML.documentElement.getElementsByTagName("range_control");
+	    for ( var j = 0; j < ranges.length; j++) {
+		var r = ranges[j];
+		log("Adding "+r.name);
+		var d = document.createElement('div');
+		d.className = 'rangecontrol';
+		tn = document.createTextNode(r.name.toLowerCase()+" ");
+		d.appendChild( tn);
+		i = document.createElement('img');
+		i.src = 'slider-l.png';
+		i.width = 6;
+		i.height = 9;
+		d.appendChild(i);
+		i = document.createElement('img');
+		i.className = 'slider';
+		i.src = 'slider.png';
+		i.width = 200;
+		i.height = 9;
+		i.minimum = parseInt(r.minimum);
+		i.maximum = parseInt(r.maximum);
+		i.currentValue = parseInt(r.current);
+		if ( i.currentValue > i.maximum) i.maximum = i.currentValue;
+		//i.defaultValue = parseInt(r.default);
+		i.cid = parseInt(r.cid);
+		d.appendChild(i);
+		i = document.createElement('img');
+		i.src = 'slider-r.png';
+		i.width = 6;
+		i.height = 9;
+		d.appendChild(i);
+		cc.appendChild( d);
+	    }
+	    BuildFrame();
+	    AddThumbs();
+	    //log( http.getAllResponseHeaders());
+	    //dump(http.responseXML.documentElement, http.statusText);
+	};
+    http.send(null);
+}
+
 function Initialize()
 {
     AddThumbs();
     BuildFrame();
-    NextFrame( document.getElementById('cam'), 1);
+    LoadControls();
+    //NextFrame( document.getElementById('cam'), 1);
 }
+
+

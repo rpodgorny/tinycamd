@@ -11,6 +11,7 @@
 #include <fcgiapp.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <stdio.h>
 
 #include "tinycamd.h"
 
@@ -46,14 +47,19 @@ static void do_status_request( FCGX_Request *req, int thread_id)
 
 static void put_image(const struct chunk *c, void *arg)
 {
+    int i,s=0;
     FCGX_Request *req = (FCGX_Request *)arg;
 
-    FCGX_FPrintF(req->out, "Content-type: image/jpeg\r\n"
-		 "\r\n");
-    while( c->data) {
-	FCGX_PutStr( c->data, c->length, req->out);
-	c++;
+    for ( i = 0; c[i].data != 0; i++) s += c[i].length;
+
+    FCGX_FPrintF(req->out, 
+		 "Content-type: image/jpeg\r\n"
+		 "Content-length: %d\r\n"
+		 "\r\n", s);
+    for ( i = 0; c[i].data != 0; i++) {
+	FCGX_PutStr( c[i].data, c[i].length, req->out);
     }
+    fprintf(stderr,"image size = %d\n",s);
 }
 
 static void stream_image( FCGX_Request *req)
@@ -71,11 +77,11 @@ static void stream_image( FCGX_Request *req)
     }
 }
 
-static void do_video_call( FCGX_Request *req, video_action action)
+static void do_video_call( FCGX_Request *req, video_action action, int cid, int val)
 {
     char buf[8192];
 
-    with_device( action, buf, sizeof(buf));
+    with_device( action, buf, sizeof(buf), cid, val);
     FCGX_FPrintF(req->out,
 		 "Cache-Control: no-cache\r\n"
 		 "Pragma: no-cache\r\n"
@@ -90,12 +96,14 @@ static void *handle_requests(void *a)
     int rc, thread_id = (int)a;
     FCGX_Request request;
     char *path_info;
+    char *query;
 
     FCGX_InitRequest(&request, sock, 0);
 
     for (;;)
     {
         static pthread_mutex_t accept_mutex = PTHREAD_MUTEX_INITIALIZER;
+	int cid, val;
 
         /* Some platforms require accept() serialization, some don't.. */
         pthread_mutex_lock(&accept_mutex);
@@ -106,13 +114,22 @@ static void *handle_requests(void *a)
             break;
 
 	path_info = FCGX_GetParam("PATH_INFO", request.envp);
+	query = FCGX_GetParam("QUERY_STRING", request.envp);
 
+	if ( verbose) fprintf(stderr,"Request: %s\n", path_info);
 	if ( strcmp(path_info,"/status")==0) {
 	    do_status_request(&request, thread_id);
 	} else if ( strcmp(path_info,"/image.replace")==0) {
 	    stream_image(&request);
 	} else if ( strcmp(path_info,"/controls")==0) {
-	    do_video_call( &request, list_controls);
+	    do_video_call( &request, list_controls,0,0);
+	} else if ( strcmp(path_info,"/set")==0 ) {
+	    if ( query && sscanf( query, "%d=%d", &cid, &val) == 2) {
+		do_video_call( &request, set_control,cid,val);
+	    } else {
+		FCGX_FPrintF(request.out, "Content-type: text/plain\r\n\r\nBad query string: %s", query);
+		// some sort of error
+	    }
 	} else {
 	    with_current_frame( &put_image, &request);
 	}
