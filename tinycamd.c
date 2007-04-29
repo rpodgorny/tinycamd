@@ -15,6 +15,8 @@
 
 #include "tinycamd.h"
 
+#define MAXFRAME 60
+
 #define THREAD_COUNT 20
 
 static pthread_mutex_t counts_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -64,6 +66,8 @@ static void put_image(const struct chunk *c, void *arg)
 
 static void stream_image( FCGX_Request *req)
 {
+    int i;
+
     FCGX_FPrintF(req->out, 
 		 "Cache-Control: no-cache\r\n"
 		 "Pragma: no-cache\r\n"
@@ -71,7 +75,7 @@ static void stream_image( FCGX_Request *req)
 		 "Connection: close\r\n"
 		 "Content-Type: multipart/x-mixed-replace; boundary=--myboundary\r\n"
 		 "\r\n");
-    for(;;) {
+    for(i = 0; i < MAXFRAME; i++) {
 	FCGX_FPrintF(req->out, "--myboundary\r\n");
 	with_next_frame( &put_image, req);
     }
