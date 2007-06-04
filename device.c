@@ -419,11 +419,16 @@ void init_device (void)
 
 	if (-1 == xioctl (videodev, VIDIOC_S_FMT, &fmt)) errno_exit ("VIDIOC_S_FMT");
 
-	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) errno_exit("VIDIOC_G_JPEGCOMP");
-	comp.quality = quality;
-	if (-1 == xioctl( videodev, VIDIOC_S_JPEGCOMP, &comp)) errno_exit("VIDIOC_S_JPEGCOMP");
-	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) errno_exit("VIDIOC_G_JPEGCOMP");
-	fprintf(stderr,"jpegcomp quality came out at %d\n", comp.quality);
+	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) {
+	    if ( errno != EINVAL) errno_exit("VIDIOC_G_JPEGCOMP");
+	    fprintf(stderr,"driver does not support VIDIOC_G_JPEGCOMP\n");
+	    comp.quality = quality;
+	} else {
+	    comp.quality = quality;
+	    if (-1 == xioctl( videodev, VIDIOC_S_JPEGCOMP, &comp)) errno_exit("VIDIOC_S_JPEGCOMP");
+	    if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) errno_exit("VIDIOC_G_JPEGCOMP");
+	    fprintf(stderr,"jpegcomp quality came out at %d\n", comp.quality);
+	}
 
 	if (-1 == xioctl( videodev, VIDIOC_G_PARM, &strm)) errno_exit("VIDIOC_G_PARM");
 	strm.parm.capture.timeperframe.numerator = 1;
