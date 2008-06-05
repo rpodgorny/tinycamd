@@ -103,10 +103,10 @@ void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf)
     int rc;
 
     if ( pthread_rwlock_wrlock( &currentFrame.lock)) {
-	fprintf(stderr,"Failed to acquire current frame write lock: %s\n", strerror(errno));
+      fprintf(stderr,"Failed to acquire current frame write lock: %s\n", strerror(errno));
 	exit(1);
     }
-    if ( verbose) fprintf(stderr,"write locked frame\n");
+    //if ( verbose) fprintf(stderr,"write locked frame\n");
 
     obuf = currentFrame.buffer;
     currentFrame.data = data;
@@ -117,13 +117,13 @@ void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf)
     } else currentFrame.buffer.type = 0;
     
     *buf = obuf;
-    if ( verbose) fprintf(stderr,"new_frame %08x %d\n", (unsigned int)data, length);
+    //if ( verbose) fprintf(stderr,"new_frame %08x %d\n", (unsigned int)data, length);
 
     if ( pthread_rwlock_unlock( &currentFrame.lock)) {
 	fprintf(stderr,"Failed to release current frame write lock: %s\n", strerror(errno));
 	exit(1);
     }
-    if ( verbose) fprintf(stderr,"write unlocked frame\n");
+    //if ( verbose) fprintf(stderr,"write unlocked frame\n");
 
     // Notify folk that the frame has changed
     rc = pthread_mutex_lock(&currentFrame.mutex);

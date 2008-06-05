@@ -1,10 +1,10 @@
 
 CFLAGS = -Wall -Werror -g -MMD $(CLFAGS)
-LDLIBS += -lfcgi -lpthread -lm
+LDLIBS += -lpthread -lm
 all : tinycamd 
 
 
-tinycamd : tinycamd.o options.o device.o frame.o controls.o
+tinycamd : tinycamd.o options.o device.o frame.o controls.o httpd.o
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 clean : 

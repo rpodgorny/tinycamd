@@ -7,17 +7,19 @@
 
 enum io_method io_method = IO_METHOD_MMAP;
 char *videodev_name = "/dev/video0";
+char *bind_name = "0.0.0.0:8080";
 int video_width = 640;
 int video_height = 480;
 int verbose = 0;
 int quality = 100;
 int fps = 5;
 
-static const char short_options [] = "d:hmruvq:s:f:";
+static const char short_options [] = "p:d:hmruvq:s:f:";
 
 static const struct option
 long_options [] = {
         { "device",     required_argument,      NULL,           'd' },
+        { "port",       required_argument,      NULL,           'p' },
         { "help",       no_argument,            NULL,           'h' },
         { "mmap",       no_argument,            NULL,           'm' },
         { "read",       no_argument,            NULL,           'r' },
@@ -34,15 +36,16 @@ static void usage(FILE *fp, int argc, char **argv)
     fprintf (fp,
 	     "Usage: %s [options]\n\n"
 	     "Options:\n"
-	     "-d | --device name   Video device name [/dev/video]\n"
-	     "-s | --size widxhgt  Size, e.g. 640x480\n"
-	     "-f | --fps num       Frames per second\n"
-	     "-q | --quality num   JPEG quality, 0-100\n"
-	     "-h | --help          Print this message\n"
-	     "-m | --mmap          Use memory mapped buffers\n"
-	     "-r | --read          Use read() calls\n"
-	     "-u | --userp         Use application allocated buffers\n"
-	     "-v | --verbose       Print a lot of debug messages\n"
+	     "-d | --device name       Video device name [/dev/video]\n"
+	     "-p | --port [addr:]port  HTTP daemon port to bind (default: 8080)\n"
+	     "-s | --size widxhgt      Size, e.g. 640x480\n"
+	     "-f | --fps num           Frames per second\n"
+	     "-q | --quality num       JPEG quality, 0-100\n"
+	     "-h | --help              Print this message\n"
+	     "-m | --mmap              Use memory mapped buffers\n"
+	     "-r | --read              Use read() calls\n"
+	     "-u | --userp             Use application allocated buffers\n"
+	     "-v | --verbose           Print a lot of debug messages\n"
 	     "",
 	     argv[0]);
 }
@@ -62,6 +65,9 @@ void do_options(int argc, char **argv)
 	    break;
 	  case 'd':
 	    videodev_name = optarg;
+	    break;
+	  case 'p':
+	    bind_name = optarg;
 	    break;
 	  case 's':
 	    if ( sscanf( optarg, "%dx%d", &video_width, &video_height) != 2) {
