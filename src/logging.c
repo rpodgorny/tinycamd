@@ -1,8 +1,10 @@
-#include "tinycamd.h"
+#include "logging.h"
 #include <syslog.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "tinycamd.h"
 
 static int syslog_opened = 0;
 

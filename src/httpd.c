@@ -13,11 +13,12 @@
 #include <semaphore.h>
 
 #include "httpd.h"
-
+#include "logging.h"
 
 #define MAX_HTTPD_CONNECTIONS 16
 #define MAX_HTTPD_TIMEOUT 10
 #define MAX_HTTPD_LISTEN_BACKLOG 24
+
 
 typedef void *(*Pfunc)(void *);  // make the pthread_create calls tidier
 
@@ -57,7 +58,7 @@ static void cleanup_request( HTTPD_Request req)
 	e = pthread_cancel( other);
 	if ( e == 0) pthread_join( other, &value);
 	else {
-	    fprintf(stderr,"httpd request cancel failed\n");
+	  log_f("httpd request cancel failed\n");
 	}
 
 	shutdown( req->socket,SHUT_RDWR);
@@ -67,7 +68,7 @@ static void cleanup_request( HTTPD_Request req)
 	
 	errno = 0;
 	if ( pthread_mutex_destroy( &req->killer) && errno != 0) {
-	    fprintf(stderr,"Failed to destroy mutex: %s\n", strerror(errno));
+	  log_f("Failed to destroy mutex: %s\n", strerror(errno));
 	}
 	free(req);
 
@@ -75,7 +76,7 @@ static void cleanup_request( HTTPD_Request req)
     } else {
 	// there is a tiny possibility of this happenening, so not really an error, but
 	// if it happens all the time you have a bug.
-	fprintf(stderr,"A killer failed\n");
+      log_f("A killer failed\n");
     }
 }
 
@@ -133,7 +134,7 @@ static void *request( HTTPD_Request req)
     char method[32], protocol[32];
 
     if ( pthread_create( &req->watchdog, NULL, (Pfunc)request_watchdog, req) != 0) {
-	fprintf(stderr,"Failed to create HTTPD request watchdog: %s\n", strerror(errno));
+      log_f("Failed to create HTTPD request watchdog: %s\n", strerror(errno));
 	cleanup_request(req);
 	return NULL;
     }
@@ -142,11 +143,11 @@ static void *request( HTTPD_Request req)
     // Get the Request
     //
     if ( !sgets(line,sizeof(line)-1, req->socket)) {
-	fprintf(stderr,"Failed to read request line\n");
+        log_f("Failed to read request line\n");
 	goto Die;
     }
     if ( sscanf( line, "%31s %8191s %31s\n", method, url, protocol) < 2) {
-	fprintf(stderr,"Illegal request: %s\n", line);
+        log_f("Illegal request: %s\n", line);
 	goto Die;
     }
     if ( strcmp(protocol,"HTTP/1.1")==0) req->protocol = 0x11;
@@ -157,11 +158,11 @@ static void *request( HTTPD_Request req)
     //
     for (;;) {
 	if ( !sgets(line,sizeof(line)-1, req->socket)) {
-	    fprintf(stderr,"Failed to read request line\n");
+	  log_f("Failed to read request line\n");
 	    goto Die;
 	}
 	if ( line[0] == '\n' || line[0] == '\r') break;
-	//fprintf(stderr,"Header: %s", line);
+	//log_f("Header: %s", line);
     }
     
     (req->func)(req, method, url);
@@ -169,7 +170,7 @@ static void *request( HTTPD_Request req)
     if ( 0) {
 	int cork = 0; 
 	if ( setsockopt(req->socket, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork))) {
-	    fprintf(stderr,"Failed to un-TCP_CORK for HTTPD: %s\n", strerror(errno));
+	  log_f("Failed to un-TCP_CORK for HTTPD: %s\n", strerror(errno));
 	}
     }
     
@@ -187,16 +188,16 @@ static void *request( HTTPD_Request req)
 //
 static void *listener( struct httpd *httpd)
 {
-    fprintf(stderr,"Starting listener on %s...\n", httpd->bindName);
+  log_f("Starting listener on %s...\n", httpd->bindName);
 
     if ( sem_init( &httpd->counter, 0, MAX_HTTPD_CONNECTIONS) == -1) {
-	fprintf(stderr,"Failed to initialize HTTPD semaphore: %s\n", strerror(errno));
+      log_f("Failed to initialize HTTPD semaphore: %s\n", strerror(errno));
 	exit(EXIT_FAILURE);
     }
 
     httpd->sock = socket(AF_INET, SOCK_STREAM, 0);
     if (httpd->sock == -1) {
-	fprintf(stderr,"Failed to create socket for HTTPD: %s\n", strerror(errno));
+      log_f("Failed to create socket for HTTPD: %s\n", strerror(errno));
 	exit(EXIT_FAILURE);
     }
 
@@ -205,17 +206,17 @@ static void *listener( struct httpd *httpd)
     {
 	int on = 1;
 	if (setsockopt(httpd->sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
-	    fprintf(stderr,"Failed to set SO_REUSEADDR for HTTPD: %s\n", strerror(errno));
+	  log_f("Failed to set SO_REUSEADDR for HTTPD: %s\n", strerror(errno));
 	}
     }
 
     if (bind(httpd->sock, httpd->bindAddr->ai_addr, httpd->bindAddr->ai_addrlen) == -1) {
-	fprintf(stderr,"Failed to bind to %s for HTTPD: %s\n", httpd->bindName, strerror(errno));
+      log_f("Failed to bind to %s for HTTPD: %s\n", httpd->bindName, strerror(errno));
 	exit(EXIT_FAILURE);
     }
 
     if (listen(httpd->sock,MAX_HTTPD_LISTEN_BACKLOG) == -1) {
-	fprintf(stderr,"Failed to listen to port %s for HTTPD: %s\n", httpd->bindName, strerror(errno));
+      log_f("Failed to listen to port %s for HTTPD: %s\n", httpd->bindName, strerror(errno));
 	exit(EXIT_FAILURE);
     }
 
@@ -232,7 +233,7 @@ static void *listener( struct httpd *httpd)
 	    int s = sem_wait( &httpd->counter);
 	    if ( s == -1 && errno == EINTR) continue;
 	    if ( s == -1) {
-		fprintf(stderr,"Failed in HTTPD sem_wait: %s\n", strerror(errno));
+	      log_f("Failed in HTTPD sem_wait: %s\n", strerror(errno));
 		exit(EXIT_FAILURE);
 	    }
 	} while(0);
@@ -243,26 +244,26 @@ static void *listener( struct httpd *httpd)
 	} while(0);
 
 	if ( ns == -1) {
-	    fprintf(stderr,"Failed while accepting connections on %s for HTTPD: %s\n", httpd->bindName, strerror(errno));
+	  log_f("Failed while accepting connections on %s for HTTPD: %s\n", httpd->bindName, strerror(errno));
 	    exit(EXIT_FAILURE);
 	}
 
 	if ( 0) {
 	    int v;
 	    sem_getvalue( &httpd->counter, &v);
-	    fprintf(stderr,"httpd threads left = %d\n", v);
+	    log_f("httpd threads left = %d\n", v);
 	}
 
 	{
 	    int off = 0;
 	    if (setsockopt(ns, IPPROTO_TCP, TCP_QUICKACK, &off, sizeof(off)) < 0) {
-		fprintf(stderr,"Failed to clear TCP_QUICKACK for HTTPD: %s\n", strerror(errno));
+	      log_f("Failed to clear TCP_QUICKACK for HTTPD: %s\n", strerror(errno));
 	    }
 	}
 	{
 	    int cork = 1; 
 	    if ( setsockopt(ns, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork))) {
-		fprintf(stderr,"Failed to set TCP_CORK for HTTPD: %s\n", strerror(errno));
+	      log_f("Failed to set TCP_CORK for HTTPD: %s\n", strerror(errno));
 	    }
 	}
 
@@ -274,7 +275,7 @@ static void *listener( struct httpd *httpd)
 	pthread_mutex_init( &r->killer, NULL);
 
 	if ( pthread_create( &r->thread, NULL, (Pfunc)request, r) != 0) {
-	    fprintf(stderr,"Failed to create thread for request on HTTPD %s: %s", httpd->bindName, strerror(errno));
+	  log_f("Failed to create thread for request on HTTPD %s: %s", httpd->bindName, strerror(errno));
 	    close(ns);
 	    free(r);
 	}
@@ -299,13 +300,13 @@ pthread_t HTTPD_Start( const char *bindPort, void (*func)(HTTPD_Request req, con
 				  .ai_socktype = SOCK_STREAM,
 				  .ai_flags = AI_PASSIVE, };
 	if ( (r = getaddrinfo( node[0]?node:NULL, serv, &hints, &h->bindAddr)) ) {
-	    fprintf(stderr,"HTTPD_Start getaddrinfo failed (%s:%s): %s\n", node,serv,gai_strerror(r));
+	  log_f("HTTPD_Start getaddrinfo failed (%s:%s): %s\n", node,serv,gai_strerror(r));
 	    exit(1);
 	}
     }
 
     if ( pthread_create( &h->thread, NULL, (Pfunc)listener, h)) {
-	fprintf(stderr,"Failed to start HTTPD thread: %s", strerror(errno));
+      log_f("Failed to start HTTPD thread: %s", strerror(errno));
 	exit(1);
     }
     return h->thread;
@@ -320,7 +321,7 @@ static int Send_Buffer( HTTPD_Request req, const void *buf, int len)
 	int c = send( req->socket, b, togo, MSG_NOSIGNAL);
 	if ( c == -1 && errno == EINTR) continue;
 	if ( c == -1) {
-	    fprintf(stderr,"Error sending on HTTPD: %s\n", strerror(errno));
+	  log_f("Error sending on HTTPD: %s\n", strerror(errno));
 	    return 0;
 	}
 	togo -= c;
