@@ -11,6 +11,7 @@ extern enum io_method io_method;
 extern char *videodev_name;
 extern char *bind_name;
 extern int verbose;
+extern int daemon_mode;
 
 void do_options(int argc, char **argv);
 

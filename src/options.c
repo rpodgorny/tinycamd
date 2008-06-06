@@ -13,13 +13,15 @@ int video_height = 480;
 int verbose = 0;
 int quality = 100;
 int fps = 5;
+int daemon_mode = 0;
 
-static const char short_options [] = "p:d:hmruvq:s:f:";
+static const char short_options [] = "p:d:hmruvq:s:f:D";
 
 static const struct option
 long_options [] = {
         { "device",     required_argument,      NULL,           'd' },
         { "port",       required_argument,      NULL,           'p' },
+	{ "daemon",     no_argument,            NULL,           'D' },
         { "help",       no_argument,            NULL,           'h' },
         { "mmap",       no_argument,            NULL,           'm' },
         { "read",       no_argument,            NULL,           'r' },
@@ -38,6 +40,7 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "Options:\n"
 	     "-d | --device name       Video device name [/dev/video]\n"
 	     "-p | --port [addr:]port  HTTP daemon port to bind (default: 8080)\n"
+	     "-D | --daemon            Detach and run as a daemon\n"
 	     "-s | --size widxhgt      Size, e.g. 640x480\n"
 	     "-f | --fps num           Frames per second\n"
 	     "-q | --quality num       JPEG quality, 0-100\n"
@@ -85,6 +88,9 @@ void do_options(int argc, char **argv)
 	    exit (EXIT_SUCCESS);
 	  case 'v':
 	    verbose = 1;
+	    break;
+	  case 'D':
+	    daemon_mode = 1;
 	    break;
 	  case 'm':
 	    io_method = IO_METHOD_MMAP;

@@ -9,6 +9,7 @@
 #include <string.h>
 #include <sys/wait.h>
 #include <stdio.h>
+#include <errno.h>
 
 #include "tinycamd.h"
 #include "httpd.h"
@@ -130,6 +131,13 @@ int main(int argc, char **argv)
     pthread_t httpdThread;
 
     do_options(argc, argv);
+
+    if ( daemon_mode) {
+      if ( daemon(0,0) != 0) {
+	fprintf(stderr,"Failed to become a daemon: %s\n", strerror(errno));
+	exit(1);
+      }
+    }
 
     open_device();
     init_device();
