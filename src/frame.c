@@ -103,10 +103,9 @@ void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf)
     int rc;
 
     if ( pthread_rwlock_wrlock( &currentFrame.lock)) {
-      fprintf(stderr,"Failed to acquire current frame write lock: %s\n", strerror(errno));
-	exit(1);
+      fatal_f("Failed to acquire current frame write lock: %s\n", strerror(errno));
     }
-    //if ( verbose) fprintf(stderr,"write locked frame\n");
+    // log_f("write locked frame\n");
 
     obuf = currentFrame.buffer;
     currentFrame.data = data;
@@ -117,13 +116,12 @@ void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf)
     } else currentFrame.buffer.type = 0;
     
     *buf = obuf;
-    //if ( verbose) fprintf(stderr,"new_frame %08x %d\n", (unsigned int)data, length);
+    // log_f("new_frame %08x %d\n", (unsigned int)data, length);
 
     if ( pthread_rwlock_unlock( &currentFrame.lock)) {
-	fprintf(stderr,"Failed to release current frame write lock: %s\n", strerror(errno));
-	exit(1);
+      fatal_f("Failed to release current frame write lock: %s\n", strerror(errno));
     }
-    //if ( verbose) fprintf(stderr,"write unlocked frame\n");
+    // log_f("write unlocked frame\n");
 
     // Notify folk that the frame has changed
     rc = pthread_mutex_lock(&currentFrame.mutex);
@@ -140,10 +138,9 @@ void with_current_frame( frame_sender func, void *arg)
     struct chunk c[4];
 
     if ( pthread_rwlock_rdlock( &currentFrame.lock)) {
-	fprintf(stderr,"Failed to acquire current frame read lock: %s\n", strerror(errno));
-	exit(1);
+      fatal_f("Failed to acquire current frame read lock: %s\n", strerror(errno));
     }
-    if ( verbose) fprintf(stderr,"read locked frame\n");
+    log_f("read locked frame\n");
 
     if ( currentFrame.hufftabInsert == 0) {
 	c[0].data = currentFrame.data;
@@ -161,17 +158,16 @@ void with_current_frame( frame_sender func, void *arg)
     (*func)(c,arg);
 
     if ( pthread_rwlock_unlock( &currentFrame.lock)) {
-	fprintf(stderr,"Failed to release current frame read lock: %s\n", strerror(errno));
-	exit(1);
+      fatal_f("Failed to release current frame read lock: %s\n", strerror(errno));
     }
-    if ( verbose) fprintf(stderr,"read unlocked frame\n");
+    log_f("read unlocked frame\n");
 }
 
 void with_next_frame( frame_sender func, void *arg)
 {
     int s;
 
-    if ( verbose) fprintf(stderr,"with_next_frame\n");
+    log_f("with_next_frame\n");
     pthread_mutex_lock( &currentFrame.mutex);
     s = currentFrame.serial;
     while( currentFrame.serial == s) {

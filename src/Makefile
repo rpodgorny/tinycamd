@@ -5,7 +5,7 @@ LDLIBS += -lpthread -lm
 all : tinycamd 
 
 
-tinycamd : tinycamd.o options.o device.o frame.o controls.o httpd.o
+tinycamd : tinycamd.o options.o device.o frame.o controls.o httpd.o logging.o
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
 clean : 

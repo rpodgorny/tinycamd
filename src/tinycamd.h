@@ -46,4 +46,7 @@ void with_next_frame( frame_sender func, void *arg);
 int list_controls( int fd, char *buf, int used, int cid, int val);
 int set_control( int fd, char *buf, int used, int cid, int val);
 
+void log_f( const char *format, ...);
+void fatal_f( const char *format, ...) __attribute__((noreturn));
+
 #endif

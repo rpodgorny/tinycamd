@@ -28,8 +28,7 @@ pthread_mutex_t video_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void errno_exit(const char *s)
 {
-    fprintf (stderr, "%s error %d, %s\n", s, errno, strerror (errno));
-    exit (EXIT_FAILURE);
+    fatal_f("%s error %d, %s\n", s, errno, strerror (errno));
 }
 
 static int xioctl(int fd, int request, void *arg)
@@ -217,18 +216,12 @@ void init_read (unsigned int buffer_size)
 {
     buffers = calloc (1, sizeof (*buffers));
     
-    if (!buffers) {
-	fprintf (stderr, "Out of memory\n");
-	exit (EXIT_FAILURE);
-    }
+    if (!buffers) fatal_f("Out of memory\n");
     
     buffers[0].length = buffer_size;
     buffers[0].start = malloc (buffer_size);
     
-    if (!buffers[0].start) {
-	fprintf (stderr, "Out of memory\n");
-	exit (EXIT_FAILURE);
-    }
+    if (!buffers[0].start) fatal_f("Out of memory\n");
 }
 
 void init_mmap (void)
@@ -241,23 +234,20 @@ void init_mmap (void)
 
     if (-1 == xioctl (videodev, VIDIOC_REQBUFS, &req)) {
 	if (EINVAL == errno) {
-	    fprintf (stderr, "%s does not support memory mapping\n",videodev_name);
-	    exit (EXIT_FAILURE);
+	  fatal_f( "%s does not support memory mapping\n",videodev_name);
 	} else {
 	    errno_exit ("VIDIOC_REQBUFS");
 	}
     }
     
     if (req.count < 2) {
-	fprintf (stderr, "Insufficient buffer memory on %s\n",videodev_name);
-	exit (EXIT_FAILURE);
+      fatal_f("Insufficient buffer memory on %s\n",videodev_name);
     }
     
     buffers = calloc (req.count, sizeof (*buffers));
     
     if (!buffers) {
-	fprintf (stderr, "Out of memory\n");
-	exit (EXIT_FAILURE);
+      fatal_f("Out of memory\n");
     }
     
     for (n_buffers = 0; n_buffers < req.count; ++n_buffers) {
@@ -291,8 +281,7 @@ void init_userp	(unsigned int buffer_size)
     
     if (-1 == xioctl (videodev, VIDIOC_REQBUFS, &req)) {
 	if (EINVAL == errno) {
-	    fprintf (stderr, "%s does not support user pointer i/o\n",videodev_name);
-	    exit (EXIT_FAILURE);
+	  fatal_f("%s does not support user pointer i/o\n",videodev_name);
 	} else {
 	    errno_exit ("VIDIOC_REQBUFS");
 	}
@@ -301,8 +290,7 @@ void init_userp	(unsigned int buffer_size)
     buffers = calloc (4, sizeof (*buffers));
     
     if (!buffers) {
-	fprintf (stderr, "Out of memory\n");
-	exit (EXIT_FAILURE);
+      fatal_f("Out of memory\n");
     }
     
     for (n_buffers = 0; n_buffers < 4; ++n_buffers) {
@@ -310,8 +298,7 @@ void init_userp	(unsigned int buffer_size)
 	buffers[n_buffers].start = malloc (buffer_size);
 	
 	if (!buffers[n_buffers].start) {
-	    fprintf (stderr, "Out of memory\n");
-	    exit (EXIT_FAILURE);
+	  fatal_f( "Out of memory\n");
 	}
     }
 }
@@ -330,8 +317,7 @@ void init_device (void)
 
 	if (-1 == xioctl (videodev, VIDIOC_QUERYCAP, &cap)) {
 	    if (EINVAL == errno) {
-		fprintf (stderr, "%s is no V4L2 device\n", videodev_name);
-		exit (EXIT_FAILURE);
+	      fatal_f("%s is no V4L2 device\n", videodev_name);
 	    } else {
 		errno_exit ("VIDIOC_QUERYCAP");
 	    }
@@ -341,8 +327,7 @@ void init_device (void)
 	** Can it capture?
 	*/
 	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-	    fprintf (stderr, "%s is no video capture device\n", videodev_name);
-	    exit (EXIT_FAILURE);
+	  fatal_f("%s is no video capture device\n", videodev_name);
 	}
 
 
@@ -352,15 +337,13 @@ void init_device (void)
 	switch (io_method) {
 	  case IO_METHOD_READ:
 	    if (!(cap.capabilities & V4L2_CAP_READWRITE)) {
-		fprintf (stderr, "%s does not support read i/o\n", videodev_name);
-		exit (EXIT_FAILURE);
+	      fatal_f( "%s does not support read i/o\n", videodev_name);
 	    }
 	    break;
 	  case IO_METHOD_MMAP:
 	  case IO_METHOD_USERPTR:
 	    if (!(cap.capabilities & V4L2_CAP_STREAMING)) {
-		fprintf (stderr, "%s does not support streaming i/o\n", videodev_name);
-		exit (EXIT_FAILURE);
+	      fatal_f("%s does not support streaming i/o\n", videodev_name);
 	    }
 	    break;
 	}
@@ -421,24 +404,24 @@ void init_device (void)
 
 	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) {
 	    if ( errno != EINVAL) errno_exit("VIDIOC_G_JPEGCOMP");
-	    fprintf(stderr,"driver does not support VIDIOC_G_JPEGCOMP\n");
+	    log_f("driver does not support VIDIOC_G_JPEGCOMP\n");
 	    comp.quality = quality;
 	} else {
 	    comp.quality = quality;
 	    if (-1 == xioctl( videodev, VIDIOC_S_JPEGCOMP, &comp)) errno_exit("VIDIOC_S_JPEGCOMP");
 	    if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) errno_exit("VIDIOC_G_JPEGCOMP");
-	    fprintf(stderr,"jpegcomp quality came out at %d\n", comp.quality);
+	    log_f("jpegcomp quality came out at %d\n", comp.quality);
 	}
 
 	if (-1 == xioctl( videodev, VIDIOC_G_PARM, &strm)) errno_exit("VIDIOC_G_PARM");
 	strm.parm.capture.timeperframe.numerator = 1;
 	if ( strm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME) {
-	    fprintf(stderr,"fps=%d\n", fps);
+	    log_f("fps=%d\n", fps);
 	    strm.parm.capture.timeperframe.denominator = fps;
 	    if (-1 == xioctl( videodev, VIDIOC_S_PARM, &strm)) errno_exit("VIDIOC_S_PARM");
-	    fprintf(stderr,"fps came out %d/%d\n", 
-		    strm.parm.capture.timeperframe.numerator,
-		    strm.parm.capture.timeperframe.denominator);
+	    log_f("fps came out %d/%d\n", 
+		 strm.parm.capture.timeperframe.numerator,
+		 strm.parm.capture.timeperframe.denominator);
 	}
 	/* Note VIDIOC_S_FMT may change width and height. */
 	
@@ -478,14 +461,12 @@ void open_device ( void)
     struct stat st; 
     
     if (-1 == stat (videodev_name, &st)) {
-	fprintf (stderr, "Cannot identify '%s': %d, %s\n",
-		 videodev_name, errno, strerror (errno));
-	exit (EXIT_FAILURE);
+      fatal_f( "Cannot identify '%s': %d, %s\n",
+	      videodev_name, errno, strerror (errno));
     }
     
     if (!S_ISCHR (st.st_mode)) {
-	fprintf (stderr, "%s is no device\n", videodev_name);
-	exit (EXIT_FAILURE);
+      fatal_f( "%s is no device\n", videodev_name);
     }
     
     pthread_mutex_lock(&video_mutex);
@@ -493,9 +474,8 @@ void open_device ( void)
     pthread_mutex_unlock(&video_mutex);
     
     if (-1 == videodev) {
-	fprintf (stderr, "Cannot open '%s': %d, %s\n",
+      fatal_f( "Cannot open '%s': %d, %s\n",
 		 videodev_name, errno, strerror (errno));
-	exit (EXIT_FAILURE);
     }
 }
 

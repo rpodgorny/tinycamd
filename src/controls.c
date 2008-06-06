@@ -34,13 +34,13 @@ int set_control( int fd, char *buf, int size, int cid, int val)
     };
     
     if ( xioctl( fd, VIDIOC_G_CTRL, &con)) {
-	fprintf(stderr,"set_control failed to check value: %s\n", strerror(errno));
+        log_f("set_control failed to check value: %s\n", strerror(errno));
 	return snprintf( buf, size, "failed to get check value: %s\n", strerror(errno));
     }
 
     con.value = val;
     if ( xioctl( fd, VIDIOC_S_CTRL, &con)) {
-	fprintf(stderr,"set_control failed to set value: %s\n", strerror(errno));
+        log_f("set_control failed to set value: %s\n", strerror(errno));
 	return snprintf( buf, size, "failed to get set value: %s\n", strerror(errno));
     }
     return snprintf(buf, size, "OK");
@@ -51,7 +51,7 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
     int cid;
     int used = 0;
 
-    if ( verbose) fprintf(stderr, "buf=%08x, size=%d\n", (unsigned int)buf, size);
+    log_f("buf=%08x, size=%d\n", (unsigned int)buf, size);
     used += snprintf( buf+used, size-used, "<?xml version=\"1.0\" ?>\n");
     used += snprintf( buf+used, size-used, "<controls>\n");
 
@@ -65,7 +65,7 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 	for ( try = 0; try < 10; try++) {
 	    rc = xioctl (fd, VIDIOC_QUERYCTRL, &queryctrl);
 	    if ( rc != 0 && errno == EIO) {
-		fprintf(stderr,"Repolling for control %d\n", cid);
+  	        log_f("Repolling for control %d\n", cid);
 		continue;
 	    }
 	    break;
@@ -78,11 +78,11 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 		.id = queryctrl.id,
 	    };
 
-	    fprintf(stderr,"ctrl: %d(%s) type:%d\n", cid, queryctrl.name,queryctrl.type);
+	    log_f("ctrl: %d(%s) type:%d\n", cid, queryctrl.name,queryctrl.type);
 	    if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) continue;
 
 	    if ( xioctl( fd, VIDIOC_G_CTRL, &con)) {
-		fprintf(stderr,"Failed to get %s value: %s\n", queryctrl.name, strerror(errno));
+	        log_f("Failed to get %s value: %s\n", queryctrl.name, strerror(errno));
 	    }
 	    
 	    switch( queryctrl.type) {
@@ -110,19 +110,19 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 				(queryctrl.flags & V4L2_CTRL_FLAG_SLIDER) ? " slider=\"1\"" : "" );
 	      break;
 	    default:
-	      fprintf(stderr,"Unhandled control type for %s, type=%d\n",
+	      log_f("Unhandled control type for %s, type=%d\n",
 		      queryctrl.name, queryctrl.type);
 	      break;
 	    }
 	} else {
-	    fprintf(stderr,"control errno:%d(%s) cid:%d(%d,%d)\n", errno, strerror(errno),cid, V4L2_CID_LASTP1, V4L2_CID_CAMERA_CLASS_BASE);
+	    log_f("control errno:%d(%s) cid:%d(%d,%d)\n", errno, strerror(errno),cid, V4L2_CID_LASTP1, V4L2_CID_CAMERA_CLASS_BASE);
 	    break;
 	}
     }
 
 
     used += snprintf( buf+used, size-used, "</controls>\n");
-    if ( verbose) fprintf(stderr,"%d %s\n", used, buf);
+    log_f("%d %s\n", used, buf);
     return used;
 }
 

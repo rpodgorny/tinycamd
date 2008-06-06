@@ -65,7 +65,7 @@ static void put_single_image(const struct chunk *c, void *arg)
   HTTPD_Send_Body( req, buffer, s);
   free(buffer);
 
-  if ( verbose) fprintf(stderr,"image size = %d\n",s);
+  log_f("image size = %d\n",s);
 }
 
 #if 0
@@ -104,7 +104,7 @@ static void handle_requests(HTTPD_Request req, const char *method, const char *u
 {
   int cid,val;
 
-  if ( verbose) fprintf(stderr,"Request: %s %s\n", method, url);
+  log_f("Request: %s %s\n", method, url);
   if ( strcmp(url,"/status")==0) {
     do_status_request(req);
 #if 0
@@ -133,9 +133,8 @@ int main(int argc, char **argv)
     do_options(argc, argv);
 
     if ( daemon_mode) {
-      if ( daemon(0,0) != 0) {
-	fprintf(stderr,"Failed to become a daemon: %s\n", strerror(errno));
-	exit(1);
+      if ( daemon(0,0) == -1) {
+	fatal_f("Failed to become a daemon: %s\n", strerror(errno));
       }
     }
 
