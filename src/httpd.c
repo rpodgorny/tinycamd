@@ -85,6 +85,7 @@ static void cleanup_request( HTTPD_Request req)
 // 
 static void *request_watchdog( HTTPD_Request req)
 {
+    pthread_detach( pthread_self());
     sleep(MAX_HTTPD_TIMEOUT);
     cleanup_request(req);
     return NULL;
