@@ -418,10 +418,13 @@ void init_device (void)
 	if ( strm.parm.capture.capability & V4L2_CAP_TIMEPERFRAME) {
 	    log_f("fps=%d\n", fps);
 	    strm.parm.capture.timeperframe.denominator = fps;
-	    if (-1 == xioctl( videodev, VIDIOC_S_PARM, &strm)) errno_exit("VIDIOC_S_PARM");
-	    log_f("fps came out %d/%d\n", 
-		 strm.parm.capture.timeperframe.numerator,
-		 strm.parm.capture.timeperframe.denominator);
+	    if (-1 == xioctl( videodev, VIDIOC_S_PARM, &strm)) {
+		log_f("failed to set fps: %s\n", strerror(errno));
+	    } else {
+		log_f("fps came out %d/%d\n", 
+		      strm.parm.capture.timeperframe.numerator,
+		      strm.parm.capture.timeperframe.denominator);
+	    }
 	}
 	/* Note VIDIOC_S_FMT may change width and height. */
 	
