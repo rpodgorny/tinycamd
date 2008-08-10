@@ -8,6 +8,7 @@
 enum io_method io_method = IO_METHOD_MMAP;
 char *videodev_name = "/dev/video0";
 char *bind_name = "0.0.0.0:8080";
+char *url_prefix = "";
 int video_width = 640;
 int video_height = 480;
 int verbose = 0;
@@ -15,7 +16,7 @@ int quality = 100;
 int fps = 5;
 int daemon_mode = 0;
 
-static const char short_options [] = "p:d:hmruvq:s:f:D";
+static const char short_options [] = "p:d:hmruvq:s:f:DU:";
 
 static const struct option
 long_options [] = {
@@ -30,6 +31,7 @@ long_options [] = {
 	{ "verbose",    no_argument,            NULL,           'v' },
 	{ "quality",    required_argument,      NULL,           'q' },
 	{ "fps",        required_argument,      NULL,           'f' },
+	{ "url-prefix", required_argument,      NULL,           'U' },
         { 0, 0, 0, 0 }
 };
 
@@ -41,6 +43,7 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "-d | --device name       Video device name [/dev/video]\n"
 	     "-p | --port [addr:]port  HTTP daemon port to bind (default: 8080)\n"
 	     "-D | --daemon            Detach and run as a daemon\n"
+	     "-U | --url-prefix        Static prefix to URL, e.g. /camera\n"
 	     "-s | --size widxhgt      Size, e.g. 640x480\n"
 	     "-f | --fps num           Frames per second\n"
 	     "-q | --quality num       JPEG quality, 0-100\n"
@@ -68,6 +71,9 @@ void do_options(int argc, char **argv)
 	    break;
 	  case 'd':
 	    videodev_name = optarg;
+	    break;
+	  case 'U':
+	    url_prefix = optarg;
 	    break;
 	  case 'p':
 	    bind_name = optarg;

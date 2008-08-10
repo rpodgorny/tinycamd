@@ -100,11 +100,18 @@ static void do_video_call( HTTPD_Request req, video_action action, int cid, int 
     HTTPD_Send_Body( req, buf, strlen(buf));
 }
 
-static void handle_requests(HTTPD_Request req, const char *method, const char *url)
+static void handle_requests(HTTPD_Request req, const char *method, const char *rawUrl)
 {
   int cid,val;
+  const char *url = rawUrl;
 
-  log_f("Request: %s %s\n", method, url);
+  if ( strncmp( rawUrl, url_prefix, strlen(url_prefix))) {
+      url = "***BADURL-NOPREFIX***";
+  } else {
+      url = rawUrl + strlen(url_prefix);
+  }
+
+  log_f("Request: %s %s => %s\n", method, rawUrl, url);
   if ( strcmp(url,"/status")==0) {
     do_status_request(req);
 #if 0

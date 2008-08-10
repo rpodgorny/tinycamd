@@ -10,6 +10,7 @@ enum io_method {
 extern enum io_method io_method;
 extern char *videodev_name;
 extern char *bind_name;
+extern char *url_prefix;
 extern int verbose;
 extern int daemon_mode;
 
