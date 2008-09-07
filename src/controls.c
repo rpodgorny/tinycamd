@@ -28,36 +28,6 @@ static char *xml(unsigned char *s)
     return buf;
 }
 
-void pantilt(int dev, char * buf, int size, int pan, int tilt, int reset)
-{
-#if 0
-    struct v4l2_ext_control xctrls[2];
-    struct v4l2_ext_controls ctrls;
-
-    if (reset) {
-	xctrls[0].id = V4L2_CID_PANTILT_RESET;
-	xctrls[0].value = 3;
-
-	ctrls.count = 1;
-	ctrls.controls = xctrls;
-    } else {
-	xctrls[0].id = V4L2_CID_PAN_RELATIVE;
-	xctrls[0].value = pan;
-	xctrls[1].id = V4L2_CID_TILT_RELATIVE;
-	xctrls[1].value = tilt;
-
-	ctrls.count = 2;
-	ctrls.controls = xctrls;
-    }
-
-    if ( xioctl(dev, VIDIOC_S_EXT_CTRLS, &ctrls)) {
-        log_f("pantilt failed: %s\n", strerror(errno));
-	return snprintf( buf, size, "pantilt failed: %s\n", strerror(errno));
-    }
-    return snprintf(buf, size, "OK");
-#endif
-}
-
 int set_control( int fd, char *buf, int size, int cid, int val)
 {
     struct v4l2_control con = {
@@ -66,13 +36,13 @@ int set_control( int fd, char *buf, int size, int cid, int val)
     
     if ( xioctl( fd, VIDIOC_G_CTRL, &con)) {
         log_f("set_control failed to check value: %s\n", strerror(errno));
-	return snprintf( buf, size, "failed to get check value: %s\n", strerror(errno));
+	//return snprintf( buf, size, "failed to get check value: %s\n", strerror(errno));
     }
 
     con.value = val;
     if ( xioctl( fd, VIDIOC_S_CTRL, &con)) {
         log_f("set_control failed to set value: %s\n", strerror(errno));
-	return snprintf( buf, size, "failed to get set value: %s\n", strerror(errno));
+	return snprintf( buf, size, "failed to set value: %s\n", strerror(errno));
     }
     return snprintf(buf, size, "OK");
 }
@@ -155,5 +125,68 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
     used += snprintf( buf+used, size-used, "</controls>\n");
     log_f("%d %s\n", used, buf);
     return used;
+}
+
+void add_logitech_controls(int fd)
+{
+#define UVC_GUID_LOGITECH_MOTOR_CONTROL {0x82, 0x06, 0x61, 0x63, 0x70, 0x50, 0xab, 0x49, 0xb8, 0xcc, 0xb3, 0x85, 0x5e, 0x8d, 0x22, 0x56}
+#define XU_MOTORCONTROL_PANTILT_RELATIVE 1
+#define XU_MOTORCONTROL_PANTILT_RESET 2
+#define XU_MOTORCONTROL_FOCUS 3
+    const unsigned char motor[16] = UVC_GUID_LOGITECH_MOTOR_CONTROL;
+
+    void add_uvc( const unsigned char *entity, int selector, int index, int size) {
+	int err;
+	struct uvc_xu_control_info ci = {
+	    .selector = selector,
+	    .index = index,
+	    .size = size,
+	    .flags = UVC_CONTROL_SET_CUR|UVC_CONTROL_GET_MIN|UVC_CONTROL_GET_MAX|UVC_CONTROL_GET_DEF
+	};
+	memcpy( ci.entity, entity, sizeof ci.entity);
+
+	errno=0;
+	if ((err=ioctl(fd, UVCIOC_CTRL_ADD, &ci)) < 0) {
+	    if (errno!=EEXIST) {
+		log_f("uvcioc ctrl add error (selector=%d): errno=%d (retval=%d)\n",selector,errno,err);
+		return;
+	    } else {
+		return; // control exists
+	    }
+	}
+	if ( verbose) fprintf(stderr,"added control %d.%d(%d)\n", selector, index, size);
+    };
+
+    void add_v4l2( int id, const char *name, const unsigned char *entity, int selector, int size, int offset, int v4l2type, int uvcType) {
+	int err;
+	struct uvc_xu_control_mapping cm = {
+	    .id = id,
+	    .selector = selector,
+	    .size=size,
+	    .offset=offset,
+	    .v4l2_type=v4l2type,
+	    .data_type=uvcType
+	};
+	memcpy( cm.entity, entity, sizeof cm.entity);
+	strncpy( (char *)cm.name, name, sizeof(cm.name)-1);
+
+	errno=0;
+	if ((err=ioctl(fd, UVCIOC_CTRL_MAP, &cm)) < 0) {
+	    if (errno!=EEXIST) {
+		log_f("uvcioc ctrl map error for id=%d: errno=%d (retval=%d)\n",id,errno,err);
+		return;
+	    } else {
+		return; // mapping exists
+	    }
+	}
+	if ( verbose) fprintf(stderr,"added v4l2 control %d(%s)\n", id, name);
+    };
+
+    add_uvc( motor, XU_MOTORCONTROL_PANTILT_RELATIVE, 0, 4);
+    add_v4l2( V4L2_CID_PAN_RELATIVE, "Pan", motor, XU_MOTORCONTROL_PANTILT_RELATIVE, 16, 0, V4L2_CTRL_TYPE_INTEGER, UVC_CTRL_DATA_TYPE_SIGNED);
+    add_v4l2( V4L2_CID_TILT_RELATIVE, "Tilt", motor, XU_MOTORCONTROL_PANTILT_RELATIVE, 16, 16, V4L2_CTRL_TYPE_INTEGER, UVC_CTRL_DATA_TYPE_SIGNED);
+
+    add_uvc( motor, XU_MOTORCONTROL_PANTILT_RESET, 0, 1);
+    add_v4l2( V4L2_CID_PAN_RESET, "PanTilt Reset", motor, XU_MOTORCONTROL_PANTILT_RESET, 8, 0, V4L2_CTRL_TYPE_INTEGER, UVC_CTRL_DATA_TYPE_UNSIGNED);
 }
 

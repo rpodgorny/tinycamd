@@ -351,6 +351,8 @@ void init_device (void)
 
         /* Select video input, video standard and tune here. */
 
+    add_logitech_controls(videodev);
+
     /*
     ** Clear the crop
     */

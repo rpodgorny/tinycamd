@@ -50,6 +50,7 @@ void with_next_frame( frame_sender func, void *arg);
 
 int list_controls( int fd, char *buf, int used, int cid, int val);
 int set_control( int fd, char *buf, int used, int cid, int val);
+void add_logitech_controls(int fd);
 
 #include "logging.h"
 
