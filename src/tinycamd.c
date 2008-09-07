@@ -146,6 +146,12 @@ int main(int argc, char **argv)
     }
 
     open_device();
+
+    if ( probe_only) {
+	probe_device();
+	return 0;
+    }
+
     init_device();
     start_capturing();
 

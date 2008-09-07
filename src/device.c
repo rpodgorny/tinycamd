@@ -400,6 +400,9 @@ void init_device (void)
 	    .type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
 	};
 
+	if ( verbose) {
+	    fprintf(stderr,"formating %dx%d\n", fmt.fmt.pix.width, fmt.fmt.pix.height);
+	}
 	if (-1 == xioctl (videodev, VIDIOC_S_FMT, &fmt)) errno_exit ("VIDIOC_S_FMT");
 
 	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) {
@@ -457,6 +460,11 @@ void close_device (void)
     if (-1 == close (videodev)) errno_exit("close");
     videodev = -1;
     pthread_mutex_unlock(&video_mutex);
+}
+
+void probe_device(void)
+{
+    printf("Probing camera:\n");
 }
 
 void open_device ( void)

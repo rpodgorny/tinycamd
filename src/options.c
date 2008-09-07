@@ -15,8 +15,9 @@ int verbose = 0;
 int quality = 100;
 int fps = 5;
 int daemon_mode = 0;
+int probe_only = 0;
 
-static const char short_options [] = "p:d:hmruvq:s:f:DU:";
+static const char short_options [] = "p:d:hmruvq:s:f:DU:P";
 
 static const struct option
 long_options [] = {
@@ -32,6 +33,7 @@ long_options [] = {
 	{ "quality",    required_argument,      NULL,           'q' },
 	{ "fps",        required_argument,      NULL,           'f' },
 	{ "url-prefix", required_argument,      NULL,           'U' },
+	{ "probe",      no_argument,            NULL,           'P' },
         { 0, 0, 0, 0 }
 };
 
@@ -52,6 +54,7 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "-r | --read              Use read() calls\n"
 	     "-u | --userp             Use application allocated buffers\n"
 	     "-v | --verbose           Print a lot of debug messages\n"
+	     "-P | --probe             Probe the camera capabilities\n"
 	     "",
 	     argv[0]);
 }
@@ -94,6 +97,9 @@ void do_options(int argc, char **argv)
 	    exit (EXIT_SUCCESS);
 	  case 'v':
 	    verbose = 1;
+	    break;
+	  case 'P':
+	    probe_only = 1;
 	    break;
 	  case 'D':
 	    daemon_mode = 1;

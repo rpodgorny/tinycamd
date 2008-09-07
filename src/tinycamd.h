@@ -22,6 +22,7 @@ extern int video_width;
 extern int video_height;
 extern int quality;
 extern int fps;
+extern int probe_only;
 
 struct chunk {
     const void *data;
@@ -32,6 +33,7 @@ typedef int (*video_action)( int fd, char *buf, int used, int cid, int val);
 
 void open_device();
 void init_device();
+void probe_device();
 void start_capturing();
 void *main_loop(void *args);
 void stop_capturing();

@@ -8,6 +8,7 @@
 #include <linux/videodev2.h>
 #include "tinycamd.h"
 #include "uvc_compat.h"
+#include "uvcvideo.h"
 
 static int xioctl(int fd, int request, void *arg)
 {
@@ -25,6 +26,34 @@ static char *xml(unsigned char *s)
 
     sprintf(buf, "\"%s\"", s);  // do better
     return buf;
+}
+
+void pantilt(int dev, char * buf, int size, int pan, int tilt, int reset)
+{
+    struct v4l2_ext_control xctrls[2];
+    struct v4l2_ext_controls ctrls;
+
+    if (reset) {
+	xctrls[0].id = V4L2_CID_PANTILT_RESET;
+	xctrls[0].value = 3;
+
+	ctrls.count = 1;
+	ctrls.controls = xctrls;
+    } else {
+	xctrls[0].id = V4L2_CID_PAN_RELATIVE;
+	xctrls[0].value = pan;
+	xctrls[1].id = V4L2_CID_TILT_RELATIVE;
+	xctrls[1].value = tilt;
+
+	ctrls.count = 2;
+	ctrls.controls = xctrls;
+    }
+
+    if ( xioctl(dev, VIDIOC_S_EXT_CTRLS, &ctrls)) {
+        log_f("pantilt failed: %s\n", strerror(errno));
+	return snprintf( buf, size, "pantilt failed: %s\n", strerror(errno));
+    }
+    return snprintf(buf, size, "OK");
 }
 
 int set_control( int fd, char *buf, int size, int cid, int val)
