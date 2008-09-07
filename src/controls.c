@@ -30,6 +30,7 @@ static char *xml(unsigned char *s)
 
 void pantilt(int dev, char * buf, int size, int pan, int tilt, int reset)
 {
+#if 0
     struct v4l2_ext_control xctrls[2];
     struct v4l2_ext_controls ctrls;
 
@@ -54,6 +55,7 @@ void pantilt(int dev, char * buf, int size, int pan, int tilt, int reset)
 	return snprintf( buf, size, "pantilt failed: %s\n", strerror(errno));
     }
     return snprintf(buf, size, "OK");
+#endif
 }
 
 int set_control( int fd, char *buf, int size, int cid, int val)

@@ -404,6 +404,10 @@ void init_device (void)
 	    fprintf(stderr,"formating %dx%d\n", fmt.fmt.pix.width, fmt.fmt.pix.height);
 	}
 	if (-1 == xioctl (videodev, VIDIOC_S_FMT, &fmt)) errno_exit ("VIDIOC_S_FMT");
+	if (-1 == xioctl (videodev, VIDIOC_G_FMT, &fmt)) errno_exit("VIDIOC_G_FMT");
+	if ( verbose) {
+	    fprintf(stderr,"got format %dx%d\n", fmt.fmt.pix.width, fmt.fmt.pix.height);
+	}
 
 	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) {
 	    if ( errno != EINVAL) errno_exit("VIDIOC_G_JPEGCOMP");
@@ -464,7 +468,7 @@ void close_device (void)
 
 void probe_device(void)
 {
-    printf("Probing camera:\n");
+    do_probe(videodev);
 }
 
 void open_device ( void)

@@ -40,6 +40,8 @@ void stop_capturing();
 void close_device();
 int with_device( video_action func, char *buf, int size, int cid, int val);
 
+void do_probe();
+
 #ifdef __LINUX_VIDEODEV2_H
 void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf);
 #endif
