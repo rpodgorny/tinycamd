@@ -49,7 +49,7 @@ int set_control( int fd, char *buf, int size, int cid, int val)
 
 int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 {
-    int cid;
+    int cid, mindex;
     int used = 0;
 
     log_f("buf=%08x, size=%d\n", (unsigned int)buf, size);
@@ -89,8 +89,21 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 	    switch( queryctrl.type) {
 	    case V4L2_CTRL_TYPE_MENU:
 	      used += snprintf( buf+used, size-used, 
-				"<menu_control name=%s />\n",
-				xml(queryctrl.name));
+				"<menu_control name=%s minimum=\"%d\" maximum=\"%d\" default=\"%d\" current=\"%d\" cid=\"%d\">\n", 
+				xml(queryctrl.name),
+				queryctrl.minimum, queryctrl.maximum, queryctrl.default_value, con.value, con.id);
+	      for ( mindex = 0; mindex <= queryctrl.maximum; mindex++) {
+		  struct v4l2_querymenu menu = {
+		      .id = con.id,
+		      .index = mindex
+		  };
+
+		  if ( xioctl( fd, VIDIOC_QUERYMENU, &menu)) {
+		      log_f("Failed to query control %s menu index %d: %s\n", queryctrl.name, mindex, strerror(errno));
+		  }
+		  used += snprintf( buf+used, size-used, "  <menu_item index=\"%d\" name=%s />\n", mindex, xml(menu.name));
+	      }
+	      used += snprintf( buf+used, size-used, "</menu_control>\n");
 	      break;
 	    case V4L2_CTRL_TYPE_BOOLEAN:
 	      used += snprintf( buf+used, size-used, 
