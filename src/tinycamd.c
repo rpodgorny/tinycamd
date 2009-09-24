@@ -10,6 +10,7 @@
 #include <sys/wait.h>
 #include <stdio.h>
 #include <errno.h>
+#include <jpeglib.h>
 
 #include "tinycamd.h"
 #include "httpd.h"
@@ -49,21 +50,106 @@ static void put_single_image(const struct chunk *c, void *arg)
 {
   HTTPD_Request req = (HTTPD_Request)arg;
   int i,s=0;
-  unsigned char *buffer, *b;
 
   HTTPD_Add_Header(req, "Cache-Control: no-cache");
   HTTPD_Add_Header(req, "Pragma: no-cache");
   HTTPD_Add_Header(req, "Expires: Thu, 01 Dec 1994 16:00:00 GMT");
   HTTPD_Add_Header(req, "Content-type: image/jpeg");
 
-  for ( i = 0; c[i].data != 0; i++) s += c[i].length;
-  buffer = malloc( s);
-  for ( i = 0, b = buffer; c[i].data != 0; i++) {
-    memcpy( b, c[i].data, c[i].length);
-    b += c[i].length;
+  switch(camera_method) {
+    case CAMERA_METHOD_JPEG:
+	{
+	    unsigned char *buffer, *b;
+	    for ( i = 0; c[i].data != 0; i++) s += c[i].length;
+	    buffer = malloc( s);
+	    for ( i = 0, b = buffer; c[i].data != 0; i++) {
+		memcpy( b, c[i].data, c[i].length);
+		b += c[i].length;
+	    }
+	    HTTPD_Send_Body( req, buffer, s);
+	    free(buffer);
+	}
+      break;
+    case CAMERA_METHOD_YUYV:
+	{
+	    unsigned char *jpegBuffer;
+	    unsigned int jpegLeft = 1024*1024;
+	    unsigned int jpegSize = 0;
+	    struct jpeg_compress_struct cinfo = { .dest = 0};
+	    struct jpeg_destination_mgr dmgr;
+	    struct jpeg_error_mgr err;
+
+	    jpegBuffer = malloc(jpegLeft);
+	    if ( !jpegBuffer) fatal_f("Failed to allocate JPEG encoding buffer.\n");
+
+	    void init_destination(j_compress_ptr cinfo) {
+		struct jpeg_destination_mgr *d = cinfo->dest;
+		d->next_output_byte = jpegBuffer;
+		d->free_in_buffer = jpegLeft;
+	    }
+	    int empty_output_buffer(j_compress_ptr cinfo) {
+		//struct jpeg_destination_mgr *d = cinfo->dest;
+		log_f("eob\n");
+		return  TRUE;
+	    }
+	    void term_destination(j_compress_ptr cinfo) {
+		struct jpeg_destination_mgr *d = cinfo->dest;
+		log_f("termdest\n");
+		jpegSize = d->next_output_byte - jpegBuffer;
+	    }
+	    dmgr.init_destination = init_destination;
+	    dmgr.empty_output_buffer = empty_output_buffer;
+	    dmgr.term_destination = term_destination;
+
+	    cinfo.err = jpeg_std_error(&err);
+	    jpeg_create_compress(&cinfo);
+	    cinfo.image_width = video_width;
+	    cinfo.image_height = video_height;
+	    if ( mono) {
+		cinfo.input_components = 1;
+		cinfo.in_color_space = JCS_GRAYSCALE;
+	    } else {
+		cinfo.input_components = 3;
+		cinfo.in_color_space = JCS_YCbCr;
+	    }
+	    jpeg_set_defaults(&cinfo);
+	    jpeg_set_quality(&cinfo, quality, TRUE);
+	    cinfo.dest = &dmgr;
+
+	    jpeg_start_compress( &cinfo, TRUE);
+	    {
+		const unsigned char *b = c[0].data;
+		int row = 0;
+		int col = 0;
+		JSAMPLE pix[video_width*3];
+		JSAMPROW rows[] = { pix};
+		JSAMPARRAY scanlines = rows;
+
+		for ( row = 0; row < video_height; row++) {
+		    JSAMPLE *p = pix;
+		    for ( col = 0; col < video_width; col+=2) {
+			*p++ = b[0];
+			if ( !mono) {
+			    *p++ = b[1];
+			    *p++ = b[3];
+			}
+			*p++ = b[2];
+			if ( !mono) {
+			    *p++ = b[1];
+			    *p++ = b[3];
+			}
+			b += 4;
+		    }
+		    jpeg_write_scanlines( &cinfo, scanlines, 1);
+		}
+	    }
+	    jpeg_finish_compress( &cinfo);
+
+	    HTTPD_Send_Body( req, jpegBuffer, jpegSize);
+	    free(jpegBuffer);
+	}
+      break;
   }
-  HTTPD_Send_Body( req, buffer, s);
-  free(buffer);
 
   log_f("image size = %d\n",s);
 }

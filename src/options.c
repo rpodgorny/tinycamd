@@ -2,10 +2,12 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <errno.h>
+#include <string.h>
 
 #include "tinycamd.h"
 
 enum io_method io_method = IO_METHOD_MMAP;
+enum camera_method camera_method = CAMERA_METHOD_JPEG;
 char *videodev_name = "/dev/video0";
 char *bind_name = "0.0.0.0:8080";
 char *url_prefix = "";
@@ -16,8 +18,9 @@ int quality = 100;
 int fps = 5;
 int daemon_mode = 0;
 int probe_only = 0;
+int mono = 0;
 
-static const char short_options [] = "p:d:hmruvq:s:f:DU:P";
+static const char short_options [] = "p:d:hmMruvq:s:f:DU:PF:";
 
 static const struct option
 long_options [] = {
@@ -34,6 +37,8 @@ long_options [] = {
 	{ "fps",        required_argument,      NULL,           'f' },
 	{ "url-prefix", required_argument,      NULL,           'U' },
 	{ "probe",      no_argument,            NULL,           'P' },
+	{ "format",     required_argument,      NULL,           'F' },
+	{ "monochrome", no_argument,            NULL,           'M' },
         { 0, 0, 0, 0 }
 };
 
@@ -49,6 +54,8 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "-s | --size widxhgt      Size, e.g. 640x480\n"
 	     "-f | --fps num           Frames per second\n"
 	     "-q | --quality num       JPEG quality, 0-100\n"
+	     "-F FMT | --format FMT    Camera image format, e.g. JPEG or YUYV\n"
+	     "-M | --monochrome        Grayscale only, if possible\n"
 	     "-h | --help              Print this message\n"
 	     "-m | --mmap              Use memory mapped buffers\n"
 	     "-r | --read              Use read() calls\n"
@@ -81,6 +88,9 @@ void do_options(int argc, char **argv)
 	  case 'p':
 	    bind_name = optarg;
 	    break;
+	  case 'M':
+	    mono = 1;
+	    break;
 	  case 's':
 	    if ( sscanf( optarg, "%dx%d", &video_width, &video_height) != 2) {
 		usage(stderr, argc, argv);
@@ -91,6 +101,14 @@ void do_options(int argc, char **argv)
 	    break;
 	  case 'f':
 	    sscanf( optarg,"%d", &fps);
+	    break;
+    	  case 'F':
+	    if ( strcmp(optarg, "jpeg")==0) camera_method = CAMERA_METHOD_JPEG;
+	    else if ( strcmp(optarg, "yuyv")==0) camera_method = CAMERA_METHOD_YUYV;
+	    else {
+	      fprintf(stderr,"Illegal camera format: %s\n", optarg);
+	      exit(EXIT_FAILURE);
+	    }
 	    break;
 	  case 'h':
 	    usage (stdout, argc, argv);

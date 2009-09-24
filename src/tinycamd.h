@@ -7,7 +7,13 @@ enum io_method {
         IO_METHOD_USERPTR,
 };
 
+enum camera_method {
+  CAMERA_METHOD_JPEG,
+  CAMERA_METHOD_YUYV,
+};
+
 extern enum io_method io_method;
+extern enum camera_method camera_method;
 extern char *videodev_name;
 extern char *bind_name;
 extern char *url_prefix;
@@ -21,6 +27,7 @@ extern int videodev;
 extern int video_width;
 extern int video_height;
 extern int quality;
+extern int mono;
 extern int fps;
 extern int probe_only;
 

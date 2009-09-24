@@ -1,6 +1,6 @@
 
 CFLAGS = -Wall -Werror -g -MMD $(CLFAGS) $(COPTS)
-LDLIBS += -lpthread -lm
+LDLIBS += -ljpeg -lpthread -lm
 
 all : tinycamd 
 
