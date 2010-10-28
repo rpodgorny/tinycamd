@@ -52,7 +52,7 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
     int cid, mindex;
     int used = 0;
 
-    log_f("buf=%08x, size=%d\n", (unsigned int)buf, size);
+    log_f("buf=%08p, size=%d\n", buf, size);
     used += snprintf( buf+used, size-used, "<?xml version=\"1.0\" ?>\n");
     used += snprintf( buf+used, size-used, "<controls>\n");
 
