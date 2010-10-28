@@ -11,6 +11,9 @@ enum camera_method camera_method = CAMERA_METHOD_JPEG;
 char *videodev_name = "/dev/video0";
 char *bind_name = "0.0.0.0:8080";
 char *url_prefix = "";
+char *pid_file = 0;
+char *setuid_to = 0;
+char *chroot_to = 0;
 int video_width = 640;
 int video_height = 480;
 int verbose = 0;
@@ -20,7 +23,7 @@ int daemon_mode = 0;
 int probe_only = 0;
 int mono = 0;
 
-static const char short_options [] = "p:d:hmMruvq:s:f:DU:PF:";
+static const char short_options [] = "p:d:hmMruvq:s:f:DU:PF:I:i:C:";
 
 static const struct option
 long_options [] = {
@@ -39,6 +42,9 @@ long_options [] = {
 	{ "probe",      no_argument,            NULL,           'P' },
 	{ "format",     required_argument,      NULL,           'F' },
 	{ "monochrome", no_argument,            NULL,           'M' },
+	{ "pid",        required_argument,      NULL,           'I' },
+	{ "uid",        required_argument,      NULL,           'i' },
+	{ "chroot",     required_argument,      NULL,           'C' },
         { 0, 0, 0, 0 }
 };
 
@@ -62,6 +68,9 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "-u | --userp             Use application allocated buffers\n"
 	     "-v | --verbose           Print a lot of debug messages\n"
 	     "-P | --probe             Probe the camera capabilities\n"
+	     "-I | --pid               File to write the pid for daemon mode\n"
+	     "-i | --uid               Change to this uid after opening camera and port\n"
+	     "-C | --chroot            Chroot to this path after initializing\n"
 	     "",
 	     argv[0]);
 }
@@ -106,7 +115,7 @@ void do_options(int argc, char **argv)
 	    if ( strcmp(optarg, "jpeg")==0) camera_method = CAMERA_METHOD_JPEG;
 	    else if ( strcmp(optarg, "yuyv")==0) camera_method = CAMERA_METHOD_YUYV;
 	    else {
-	      fprintf(stderr,"Illegal camera format: %s\n", optarg);
+	      fprintf(stderr,"Illegal camera format: %s, consider jpeg or yuyv.\n", optarg);
 	      exit(EXIT_FAILURE);
 	    }
 	    break;
@@ -118,6 +127,15 @@ void do_options(int argc, char **argv)
 	    break;
 	  case 'P':
 	    probe_only = 1;
+	    break;
+	  case 'i':
+	    setuid_to = optarg;
+	    break;
+	  case 'C':
+	    chroot_to = optarg;
+	    break;
+	  case 'I':
+	    pid_file = optarg;
 	    break;
 	  case 'D':
 	    daemon_mode = 1;

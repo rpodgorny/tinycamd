@@ -1,0 +1,36 @@
+.TH tinycamd 1 "October 2010" "version 0.1" "USER COMMANDS"
+.SH NAME
+tinycamd \- an efficient HTTP interface to a webcam
+.SH SYNOPSIS
+.B tinycamd
+[\-hv] [\-d /dev/video] [\-s 640x480] [\-p 0.0.0.0:8080]
+.SH DESCRIPTION
+Tinycamd is built to run efficiently, especially on very small
+hardware.  Ideally you will use a camera that can provide an MJPEG
+encoded image stream which tinycamd will reformat into JPEG images
+without serious computation.  Alternativly you can use a YUYV webcam
+and let tinycamd do the remainder of the encoding.
+.PP
+Typically, you will use a webserver to proxy to tinycamd for your
+images. See the --url-prefix option for removing the remaining URL
+prefix in this case.
+.PP
+... describe the URLs here
+.PP
+... describe the UVC controls interface here...
+.SH OPTIONS
+.TP
+\-h, \-\-help
+Display a short help text.
+.TP
+\-v, \-\-verbsose
+Display a stream of debugging information.
+.SH EXAMPLES
+.IP
+.B tinycamd
+\-\-daemon 
+\-\-setuid\-to nobody 
+\-\-chroot\-to /var/lib/tinycamd 
+\-\-device /dev/video0
+.SH AUTHOR
+Jim Studt, jim@studt.net

@@ -17,6 +17,9 @@ extern enum camera_method camera_method;
 extern char *videodev_name;
 extern char *bind_name;
 extern char *url_prefix;
+extern char *pid_file;
+extern char *setuid_to;
+extern char *chroot_to;
 extern int verbose;
 extern int daemon_mode;
 

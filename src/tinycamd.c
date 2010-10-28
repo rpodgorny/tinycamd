@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <jpeglib.h>
+#include <pwd.h>
 
 #include "tinycamd.h"
 #include "httpd.h"
@@ -218,6 +219,12 @@ static void handle_requests(HTTPD_Request req, const char *method, const char *r
   }
 }
 
+static void *sleeper(void *arg)
+{
+  while(1) sleep(1000);
+  return 0;
+}
+
 int main(int argc, char **argv)
 {
     pthread_t captureThread;
@@ -231,6 +238,13 @@ int main(int argc, char **argv)
       }
     }
 
+    if ( pid_file) {
+	FILE *pf = fopen( pid_file,"w");
+	if ( !pf) fatal_f("Failed to open pid file %s: %s\n", pid_file, strerror(errno));
+	fprintf(pf, "%d\n", getpid());
+	if ( fclose(pf)==EOF) fatal_f("Failed to close pid file %s: %s\n", pid_file, strerror(errno));
+    }
+
     open_device();
 
     if ( probe_only) {
@@ -242,6 +256,41 @@ int main(int argc, char **argv)
     start_capturing();
 
     pthread_create( &captureThread, NULL, main_loop, NULL);
+
+    /*
+    ** I am so sorry. But glibc dynamically loads libgcc_s.so.1 to handle pthread_cancel, so
+    ** I need to get that in before chrooting.
+    */
+    {
+      pthread_t crappyHack;
+      void *whatever;
+
+      if ( pthread_create( &crappyHack, 0, sleeper, 0)) fatal_f("Failed to start test thread.\n");
+      if ( pthread_cancel( crappyHack)) fatal_f("Failed to cancel test thread.\n");
+      if ( pthread_join( crappyHack, &whatever)) fatal_f("Failed to join test thread.\n");
+    }
+
+    /*
+    ** Slink into our ghetto and lower our privileges in preparation for handling queries.
+    */
+    {
+        uid_t uid = getuid();
+	
+        /* lookup uid before we chroot... or it is gone. */
+        if ( setuid_to) {
+            struct passwd *pw = getpwnam(setuid_to);
+            if ( !pw) fatal_f("Failed to lookup user `%s' for setuid: %s\n", setuid_to, strerror(errno));
+            uid = pw->pw_uid;
+        }
+
+        if ( chroot_to) {
+            if ( chroot( chroot_to)) fatal_f("Failed to chroot to `%s': %s\n", chroot_to, strerror(errno));
+        }
+
+        if ( setuid_to) {
+            if ( setreuid(uid, uid)) fatal_f("Failed to setuid to `%s': %s\n", setuid_to, strerror(errno));
+        }
+    }
 
     httpdThread = HTTPD_Start( bind_name, handle_requests);
 

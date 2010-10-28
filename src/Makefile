@@ -1,6 +1,6 @@
 
-CFLAGS := -Wall -Werror -g -MMD $(CFLAGS) $(COPTS)
-LDLIBS += -ljpeg -lpthread -lm
+CFLAGS := -Wall -Werror -O2 -MMD $(CFLAGS) $(COPTS)
+LDLIBS += -ljpeg -lpthread 
 
 all : tinycamd 
 
@@ -8,8 +8,12 @@ all : tinycamd
 tinycamd : tinycamd.o options.o device.o frame.o controls.o httpd.o logging.o probe.o
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
 
+# to profile, LD_PRELOAD=./gprof-helper.so ./tinycamd ....
+gprof-helper.so:
+	$(CC) -shared -fPIC util/gprof-helper.c -o gprof-helper.so -lpthread -ldl
+
 clean : 
-	- rm -f *.[do] *~ tinycamd 
+	- rm -f *.[do] *~ tinycamd  *.gcov *.gcda *.gcno gmon.out
 
 install : 
 	mkdir -p $(DESTDIR)/usr/bin/

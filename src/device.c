@@ -506,7 +506,7 @@ void open_device ( void)
     }
     
     pthread_mutex_lock(&video_mutex);
-    videodev = open (videodev_name, O_RDWR /* required */ | O_NONBLOCK, 0);
+    videodev = open (videodev_name, O_RDWR /* required */, 0);
     pthread_mutex_unlock(&video_mutex);
     
     if (-1 == videodev) {

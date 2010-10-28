@@ -110,12 +110,13 @@ void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf)
     obuf = currentFrame.buffer;
     currentFrame.data = data;
     currentFrame.length = length;
-    currentFrame.hufftabInsert = find_hufftab_location( currentFrame.data, currentFrame.length);
+    currentFrame.hufftabInsert = (camera_method == CAMERA_METHOD_JPEG) ? find_hufftab_location( currentFrame.data, currentFrame.length) : 0;
+
     if ( buf) {
 	currentFrame.buffer = *buf;
     } else currentFrame.buffer.type = 0;
     
-    *buf = obuf;
+    if ( buf) *buf = obuf;
     // log_f("new_frame %08x %d\n", (unsigned int)data, length);
 
     if ( pthread_rwlock_unlock( &currentFrame.lock)) {
