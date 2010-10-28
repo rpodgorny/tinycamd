@@ -110,7 +110,7 @@ void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf)
     obuf = currentFrame.buffer;
     currentFrame.data = data;
     currentFrame.length = length;
-    currentFrame.hufftabInsert = (camera_method == CAMERA_METHOD_JPEG) ? find_hufftab_location( currentFrame.data, currentFrame.length) : 0;
+    currentFrame.hufftabInsert = (camera_method == CAMERA_METHOD_MJPEG) ? find_hufftab_location( currentFrame.data, currentFrame.length) : 0;
 
     if ( buf) {
 	currentFrame.buffer = *buf;

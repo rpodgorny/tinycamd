@@ -58,6 +58,7 @@ static void put_single_image(const struct chunk *c, void *arg)
   HTTPD_Add_Header(req, "Content-type: image/jpeg");
 
   switch(camera_method) {
+    case CAMERA_METHOD_MJPEG:
     case CAMERA_METHOD_JPEG:
 	{
 	    unsigned char *buffer, *b;

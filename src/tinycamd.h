@@ -8,6 +8,7 @@ enum io_method {
 };
 
 enum camera_method {
+  CAMERA_METHOD_MJPEG,
   CAMERA_METHOD_JPEG,
   CAMERA_METHOD_YUYV,
 };

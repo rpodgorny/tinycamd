@@ -311,8 +311,11 @@ void init_device (void)
     unsigned int pixelformat;
 
     switch(camera_method) {
-    case CAMERA_METHOD_JPEG:
+    case CAMERA_METHOD_MJPEG:
       pixelformat = V4L2_PIX_FMT_MJPEG;
+      break;
+    case CAMERA_METHOD_JPEG:
+      pixelformat = V4L2_PIX_FMT_JPEG;
       break;
     case CAMERA_METHOD_YUYV:
       pixelformat = V4L2_PIX_FMT_YUYV;
@@ -417,14 +420,20 @@ void init_device (void)
 	};
 
 	if ( verbose) {
-	  fprintf(stderr,"formating %dx%d pf=%d\n", fmt.fmt.pix.width, fmt.fmt.pix.height,
-		  fmt.fmt.pix.pixelformat);
+	  fprintf(stderr,"formating %dx%d pf=%c%c%c%c\n", fmt.fmt.pix.width, fmt.fmt.pix.height,
+		    fmt.fmt.pix.pixelformat & 0xff,
+		    (fmt.fmt.pix.pixelformat >> 8) & 0xff,
+		    (fmt.fmt.pix.pixelformat >> 16) & 0xff,
+		    (fmt.fmt.pix.pixelformat >> 24) & 0xff);
 	}
 	if (-1 == xioctl (videodev, VIDIOC_S_FMT, &fmt)) errno_exit ("VIDIOC_S_FMT");
 	if (-1 == xioctl (videodev, VIDIOC_G_FMT, &fmt)) errno_exit("VIDIOC_G_FMT");
 	if ( verbose) {
-	    fprintf(stderr,"got format %dx%d pf=%d\n", fmt.fmt.pix.width, fmt.fmt.pix.height, 
-		    fmt.fmt.pix.pixelformat);
+	    fprintf(stderr,"got format %dx%d pf=%c%c%c%c\n", fmt.fmt.pix.width, fmt.fmt.pix.height, 
+		    fmt.fmt.pix.pixelformat & 0xff,
+		    (fmt.fmt.pix.pixelformat >> 8) & 0xff,
+		    (fmt.fmt.pix.pixelformat >> 16) & 0xff,
+		    (fmt.fmt.pix.pixelformat >> 24) & 0xff);
 	}
 	if ( fmt.fmt.pix.pixelformat != pixelformat) {
 	  fatal_f("Unable to set requested pixelformat.\n");

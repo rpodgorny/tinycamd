@@ -7,7 +7,7 @@
 #include "tinycamd.h"
 
 enum io_method io_method = IO_METHOD_MMAP;
-enum camera_method camera_method = CAMERA_METHOD_JPEG;
+enum camera_method camera_method = CAMERA_METHOD_MJPEG;
 char *videodev_name = "/dev/video0";
 char *bind_name = "0.0.0.0:8080";
 char *url_prefix = "";
@@ -60,7 +60,7 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "-s | --size widxhgt      Size, e.g. 640x480\n"
 	     "-f | --fps num           Frames per second\n"
 	     "-q | --quality num       JPEG quality, 0-100\n"
-	     "-F FMT | --format FMT    Camera image format, e.g. JPEG or YUYV\n"
+	     "-F FMT | --format FMT    Camera image format, e.g. mjpeg, jpeg, yuyv\n"
 	     "-M | --monochrome        Grayscale only, if possible\n"
 	     "-h | --help              Print this message\n"
 	     "-m | --mmap              Use memory mapped buffers\n"
@@ -114,8 +114,9 @@ void do_options(int argc, char **argv)
     	  case 'F':
 	    if ( strcmp(optarg, "jpeg")==0) camera_method = CAMERA_METHOD_JPEG;
 	    else if ( strcmp(optarg, "yuyv")==0) camera_method = CAMERA_METHOD_YUYV;
+	    else if ( strcmp(optarg, "mjpeg")==0) camera_method = CAMERA_METHOD_MJPEG;
 	    else {
-	      fprintf(stderr,"Illegal camera format: %s, consider jpeg or yuyv.\n", optarg);
+	      fprintf(stderr,"Illegal camera format: %s, consider mjpeg, jpeg, or yuyv.\n", optarg);
 	      exit(EXIT_FAILURE);
 	    }
 	    break;
