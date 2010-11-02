@@ -22,6 +22,9 @@
 
 typedef void *(*Pfunc)(void *);  // make the pthread_create calls tidier
 
+static const int zero = 0;
+static const int one = 1;
+
 struct httpd {
     pthread_t thread;
     sem_t counter;
@@ -38,10 +41,14 @@ struct http_request {
     pthread_t watchdog;
     struct sockaddr_in remote_addr;
     int protocol;    // 0x10 = 1.0, 0x11 = 1.1
+    pthread_mutex_t deadline_mutex;
+    time_t deadline;
     int socket;
     int sentStatus;
     void (*func)(HTTPD_Request req, const char *method, const char *url);
 };
+
+const int noKeepAlive = 0;
 
 //
 // This the the request cleanup function. It could be called from either request()'s thread or
@@ -80,13 +87,42 @@ static void cleanup_request( HTTPD_Request req)
     }
 }
 
+static time_t get_deadline( HTTPD_Request req) {
+    time_t v = 0;
+
+    if ( pthread_mutex_lock( &req->killer) == 0) {
+	v = req->deadline;
+	if ( pthread_mutex_unlock( &req->killer) != 0) log_f("Failed to unlock mutex in get_deadline\n");
+    } else {
+	log_f("Failed to lock mutex in get_deadline\n");
+    }
+    return v;
+}
+
+static void set_deadline( HTTPD_Request req, time_t t) {
+    if ( pthread_mutex_lock( &req->killer) == 0) {
+	req->deadline = t;
+	if ( pthread_mutex_unlock( &req->killer) != 0) log_f("Failed to unlock mutex in set_deadline\n");
+    } else {
+	log_f("Failed to lock mutex in set_deadline\n");
+    }
+}
+
+
 //
 // This is the watchdog thread. THere is one for each request thread.
 // 
 static void *request_watchdog( HTTPD_Request req)
 {
     pthread_detach( pthread_self());
-    sleep(MAX_HTTPD_TIMEOUT);
+
+    for (;;) {
+	time_t now = time(0);
+	int togo = get_deadline(req) - now;
+	
+	if ( togo <= 0) break;
+	sleep( togo);
+    }
     log_f("a watchdog has fired\n");
     cleanup_request(req);
     return NULL;
@@ -141,41 +177,55 @@ static void *request( HTTPD_Request req)
 	return NULL;
     }
 
-    //
-    // Get the Request
-    //
-    if ( !sgets(line,sizeof(line)-1, req->socket)) {
-        log_f("Failed to read request line\n");
-	goto Die;
-    }
-    if ( sscanf( line, "%31s %8191s %31s\n", method, url, protocol) < 2) {
-        log_f("Illegal request: %s\n", line);
-	goto Die;
-    }
-    if ( strcmp(protocol,"HTTP/1.1")==0) req->protocol = 0x11;
-    else req->protocol = 0x10;
-    
-    //
-    // Get the headers
-    //
-    for (;;) {
+    do {
+	//
+	// Reset in case we are on a keep alive connection
+	//
+	req->sentStatus = 0;
+
+	//
+	// Get the Request
+	//
 	if ( !sgets(line,sizeof(line)-1, req->socket)) {
-	  log_f("Failed to read request line\n");
+	    log_f("Failed to read request line: %s\n", strerror(errno));
 	    goto Die;
 	}
-	if ( line[0] == '\n' || line[0] == '\r') break;
-	//log_f("Header: %s", line);
-    }
-    
-    (req->func)(req, method, url);
-    
-    if ( 0) {
-	int cork = 0; 
-	if ( setsockopt(req->socket, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork))) {
-	  log_f("Failed to un-TCP_CORK for HTTPD: %s\n", strerror(errno));
+	if ( sscanf( line, "%31s %8191s %31s\n", method, url, protocol) < 2) {
+	    log_f("Illegal request: %s\n", line);
+	    goto Die;
 	}
-    }
+	if ( strcmp(protocol,"HTTP/1.1")==0) req->protocol = 0x11;
+	else req->protocol = 0x10;
     
+	//
+	// Get the headers
+	//
+	for (;;) {
+	    if ( !sgets(line,sizeof(line)-1, req->socket)) {
+		log_f("Failed to read request line\n");
+		goto Die;
+	    }
+	    if ( line[0] == '\n' || line[0] == '\r') break;
+	    //log_f("Header: %s", line);
+	}
+    
+	(req->func)(req, method, url);
+    
+	if ( 1) {
+	    if ( setsockopt(req->socket, IPPROTO_TCP, TCP_CORK, &zero, sizeof(zero))) {
+		log_f("Failed to un-TCP_CORK for HTTPD: %s\n", strerror(errno));
+	    }
+	    if ( setsockopt(req->socket, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one))) {
+		log_f("Failed to TCP_NODELAY for HTTPD: %s\n", strerror(errno));
+	    }
+	    if ( setsockopt(req->socket, IPPROTO_TCP, TCP_CORK, &one, sizeof(one))) {
+		log_f("Failed to TCP_CORK for HTTPD: %s\n", strerror(errno));
+	    }
+	}
+
+	set_deadline( req, time(0) + MAX_HTTPD_TIMEOUT);
+    } while ( req->protocol == 0x11 && !noKeepAlive);
+
   Die:
     cleanup_request(req);
 
@@ -256,17 +306,13 @@ static void *listener( struct httpd *httpd)
 	    log_f("httpd threads left = %d\n", v);
 	}
 
-	{
-	    int off = 0;
-	    if (setsockopt(ns, IPPROTO_TCP, TCP_QUICKACK, &off, sizeof(off)) < 0) {
-	      log_f("Failed to clear TCP_QUICKACK for HTTPD: %s\n", strerror(errno));
-	    }
+	#if 0
+	if (setsockopt(ns, IPPROTO_TCP, TCP_QUICKACK, &zero, sizeof(zero)) < 0) {
+	    log_f("Failed to clear TCP_QUICKACK for HTTPD: %s\n", strerror(errno));
 	}
-	{
-	    int cork = 1; 
-	    if ( setsockopt(ns, IPPROTO_TCP, TCP_CORK, &cork, sizeof(cork))) {
-	      log_f("Failed to set TCP_CORK for HTTPD: %s\n", strerror(errno));
-	    }
+	#endif
+	if ( setsockopt(ns, IPPROTO_TCP, TCP_CORK, &one, sizeof(one))) {
+	    log_f("Failed to set TCP_CORK for HTTPD: %s\n", strerror(errno));
 	}
 
 	r = calloc( sizeof(*r), 1);
@@ -274,7 +320,9 @@ static void *listener( struct httpd *httpd)
 	r->httpd = httpd;
 	r->socket = ns;
 	r->func = httpd->func;
+	r->deadline = time(0) + MAX_HTTPD_TIMEOUT;
 	pthread_mutex_init( &r->killer, NULL);
+	pthread_mutex_init( &r->deadline_mutex, NULL);
 
 	if ( pthread_create( &r->thread, NULL, (Pfunc)request, r) != 0) {
 	  log_f("Failed to create thread for request on HTTPD %s: %s", httpd->bindName, strerror(errno));
@@ -337,8 +385,12 @@ void HTTPD_Send_Status(HTTPD_Request req, int status, const char *text)
     char buf[1024];
 
     if ( req->sentStatus) return;
-    if ( req->protocol >= 0x11) {
-      snprintf( buf, sizeof(buf)-1, "HTTP/1.1 %3d %s\r\nConnection: close\r\n", status, text);
+    if ( req->protocol >= 0x11 ) {
+	if ( noKeepAlive) {
+	    snprintf( buf, sizeof(buf)-1, "HTTP/1.1 %3d %s\r\nConnection: close\r\n", status, text);
+	} else {
+	    snprintf( buf, sizeof(buf)-1, "HTTP/1.1 %3d %s\r\n", status, text);
+	}
     } else {
 	snprintf( buf, sizeof(buf)-1, "HTTP/1.0 %3d \r\n", status);
     }
