@@ -12,6 +12,7 @@ static void out_f( int priority, const char *format, va_list args)
 {
   if ( !daemon_mode) {
     vfprintf(stderr, format, args);
+    fflush(stderr);
   } else {
     if ( !syslog_opened) {
       openlog("tinycamd", 0, LOG_DAEMON);

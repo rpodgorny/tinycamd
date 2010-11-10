@@ -1,6 +1,7 @@
 
 #include <pthread.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -11,6 +12,8 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 #include <semaphore.h>
+#include <signal.h>
+#include <time.h>
 
 #include "httpd.h"
 #include "logging.h"
@@ -36,13 +39,10 @@ struct httpd {
 
 struct http_request {
     struct httpd *httpd;
-    pthread_mutex_t killer;
     pthread_t thread;
-    pthread_t watchdog;
+    timer_t watchdog;
     struct sockaddr_in remote_addr;
     int protocol;    // 0x10 = 1.0, 0x11 = 1.1
-    pthread_mutex_t deadline_mutex;
-    time_t deadline;
     int socket;
     int sentStatus;
     void (*func)(HTTPD_Request req, const char *method, const char *url);
@@ -50,83 +50,80 @@ struct http_request {
 
 const int noKeepAlive = 0;
 
+
+static int set_deadline( HTTPD_Request req, unsigned int seconds) {
+    struct itimerspec its = { .it_value = { .tv_sec = seconds } };
+    if ( timer_settime( req->watchdog, 0, &its, 0) == -1) {
+	log_f("Failed timer_settime in set_deadline: %s\n", strerror(errno));
+	return 0;
+    }
+    return 1;
+}
+//
+// Fired by the watchdog to kill an idle or hung thread.
+// This runs in a different thread from the request.
+//
+static void expire_request( union sigval arg) 
+{
+    HTTPD_Request req = (HTTPD_Request)(arg.sival_ptr);
+
+    //
+    // DANGER!!! There is a race here. We could have fired and gotten to here
+    //           at the same time request could have exitted and req is released
+    //           and req->thread is dead.
+    // FIX THIS!!!
+    //
+    if ( pthread_cancel( req->thread) != 0) {
+	log_f("Watchdog failed canceling request thread: %s\n", strerror(errno));
+    }
+}
+//
+// Wherein we start the watchdog thread. This is insanely verbose because
+// pthreads condition variables are ridiculous, but we have to make sure
+// the watchdog is good and going before we come back, or we can handle
+// the request and get to the shutdown code before the watchdog has started
+// and that hangs.
+//
+static int start_watchdog( HTTPD_Request req)
+{
+    struct sigevent ev = { .sigev_notify = SIGEV_THREAD,
+			   .sigev_notify_function = expire_request,
+			   .sigev_value = { .sival_ptr = (void *)req },
+    };
+
+    if ( timer_create( CLOCK_MONOTONIC, &ev, &req->watchdog) != 0) {
+	log_f("Failed to create watchdog for request thread: %s\n", strerror(errno));
+	return 0;
+    }
+    return set_deadline( req, MAX_HTTPD_TIMEOUT);
+}
+static void stop_watchdog( HTTPD_Request req)
+{
+    if ( timer_delete( req->watchdog) != 0) {
+	log_f("Failed to stop watchdog: %s\n", strerror(errno));
+    }
+}
+
 //
 // This the the request cleanup function. It could be called from either request()'s thread or
 // the request_watchdog() thread. The req->kill mutex ensures that only one gets into the goodies.
 // The other is killed and joined before the cleanup begins.
 //
-static void cleanup_request( HTTPD_Request req)
+static void cleanup_request( void *arg)
 {
-    if ( pthread_mutex_lock( &req->killer) == 0) {
-	pthread_t other = ( req->watchdog != pthread_self() ? req->watchdog : req->thread);
-	void *value;
-	int e;
+    HTTPD_Request req = (HTTPD_Request)arg;
 
-	e = pthread_cancel( other);
-	if ( e == 0) pthread_join( other, &value);
-	else {
-	  log_f("httpd request cancel failed\n");
-	}
+    stop_watchdog(req);
 
-	shutdown( req->socket,SHUT_RDWR);
-	close( req->socket);
+    log_f("Shutting down sockets\n");
+    
+    shutdown( req->socket,SHUT_RDWR);
+    close( req->socket);
 	
-	sem_post( &req->httpd->counter);
-	
-	errno = 0;
-	if ( pthread_mutex_destroy( &req->killer) && errno != 0) {
-	  log_f("Failed to destroy mutex: %s\n", strerror(errno));
-	}
-	free(req);
-
-	pthread_detach( pthread_self());
-    } else {
-	// there is a tiny possibility of this happenening, so not really an error, but
-	// if it happens all the time you have a bug.
-      log_f("A killer failed\n");
-    }
-}
-
-static time_t get_deadline( HTTPD_Request req) {
-    time_t v = 0;
-
-    if ( pthread_mutex_lock( &req->killer) == 0) {
-	v = req->deadline;
-	if ( pthread_mutex_unlock( &req->killer) != 0) log_f("Failed to unlock mutex in get_deadline\n");
-    } else {
-	log_f("Failed to lock mutex in get_deadline\n");
-    }
-    return v;
-}
-
-static void set_deadline( HTTPD_Request req, time_t t) {
-    if ( pthread_mutex_lock( &req->killer) == 0) {
-	req->deadline = t;
-	if ( pthread_mutex_unlock( &req->killer) != 0) log_f("Failed to unlock mutex in set_deadline\n");
-    } else {
-	log_f("Failed to lock mutex in set_deadline\n");
-    }
+    sem_post( &req->httpd->counter);
 }
 
 
-//
-// This is the watchdog thread. THere is one for each request thread.
-// 
-static void *request_watchdog( HTTPD_Request req)
-{
-    pthread_detach( pthread_self());
-
-    for (;;) {
-	time_t now = time(0);
-	int togo = get_deadline(req) - now;
-	
-	if ( togo <= 0) break;
-	sleep( togo);
-    }
-    log_f("a watchdog has fired\n");
-    cleanup_request(req);
-    return NULL;
-}
 
 //
 // Sort of an fgets() for a socket. I had originally used fdopen() and fgets, but
@@ -162,20 +159,16 @@ static char *sgets(char *sbuf, int size, int sock)
 
 
 //
-// There is one of these threads for each http connection.
-// It reads the request dispatches it, and cleans up afterward.
+// The main request loop, one per connection.
+// This is wrapped in cleanup code by request().
 //
-static void *request( HTTPD_Request req)
+static void *request_loop( HTTPD_Request req)
 {
     char line[10240];
     char url[8192];
     char method[32], protocol[32];
 
-    if ( pthread_create( &req->watchdog, NULL, (Pfunc)request_watchdog, req) != 0) {
-      log_f("Failed to create HTTPD request watchdog: %s\n", strerror(errno));
-	cleanup_request(req);
-	return NULL;
-    }
+    if ( !start_watchdog(req)) return NULL;
 
     do {
 	//
@@ -188,11 +181,11 @@ static void *request( HTTPD_Request req)
 	//
 	if ( !sgets(line,sizeof(line)-1, req->socket)) {
 	    log_f("Failed to read request line: %s\n", strerror(errno));
-	    goto Die;
+	    return NULL;
 	}
 	if ( sscanf( line, "%31s %8191s %31s\n", method, url, protocol) < 2) {
 	    log_f("Illegal request: %s\n", line);
-	    goto Die;
+	    return NULL;
 	}
 	if ( strcmp(protocol,"HTTP/1.1")==0) req->protocol = 0x11;
 	else req->protocol = 0x10;
@@ -203,7 +196,7 @@ static void *request( HTTPD_Request req)
 	for (;;) {
 	    if ( !sgets(line,sizeof(line)-1, req->socket)) {
 		log_f("Failed to read request line\n");
-		goto Die;
+		return NULL;
 	    }
 	    if ( line[0] == '\n' || line[0] == '\r') break;
 	    //log_f("Header: %s", line);
@@ -223,13 +216,31 @@ static void *request( HTTPD_Request req)
 	    }
 	}
 
-	set_deadline( req, time(0) + MAX_HTTPD_TIMEOUT);
+	set_deadline( req, MAX_HTTPD_TIMEOUT);
     } while ( req->protocol == 0x11 && !noKeepAlive);
 
-  Die:
-    cleanup_request(req);
+    log_f("Ending request thread.\n");
 
-    return 0;
+    return NULL;
+}
+
+//
+// There is one of these threads for each http connection.
+// It reads the request dispatches it, and cleans up afterward.
+//
+static void *request( HTTPD_Request req)
+{
+    void *res;
+
+    pthread_detach( pthread_self());
+
+    pthread_cleanup_push( cleanup_request, (void *)req);
+    res = request_loop(req);
+    pthread_cleanup_pop( 1);
+    
+    free(req);
+
+    return NULL;
 }
 
 //
@@ -320,9 +331,6 @@ static void *listener( struct httpd *httpd)
 	r->httpd = httpd;
 	r->socket = ns;
 	r->func = httpd->func;
-	r->deadline = time(0) + MAX_HTTPD_TIMEOUT;
-	pthread_mutex_init( &r->killer, NULL);
-	pthread_mutex_init( &r->deadline_mutex, NULL);
 
 	if ( pthread_create( &r->thread, NULL, (Pfunc)request, r) != 0) {
 	  log_f("Failed to create thread for request on HTTPD %s: %s", httpd->bindName, strerror(errno));

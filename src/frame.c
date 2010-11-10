@@ -133,14 +133,29 @@ void new_frame( void *data, unsigned int length, struct v4l2_buffer *buf)
     return;
 }
 
+static void with_current_frame_cleanup( void *arg) 
+{
+    if ( pthread_rwlock_unlock( &currentFrame.lock)) {
+	fatal_f("Failed to release current frame read lock: %s\n", strerror(errno));
+    }
+}
 
 void with_current_frame( frame_sender func, void *arg)
 {
     struct chunk c[4];
+    int oldState;
 
+    //
+    // Well, Ick! It is undefined to unlock a rwlock that you didn't lock. That
+    // makes deciding if an unlock is needed in the face of a pthread_cancel() very
+    // ugly indeed.
+    //
+    pthread_setcancelstate( PTHREAD_CANCEL_DISABLE, &oldState);
+    pthread_cleanup_push( with_current_frame_cleanup, 0);
     if ( pthread_rwlock_rdlock( &currentFrame.lock)) {
       fatal_f("Failed to acquire current frame read lock: %s\n", strerror(errno));
     }
+    pthread_setcancelstate( oldState,0);
     log_f("read locked frame\n");
 
     if ( currentFrame.hufftabInsert == 0) {
@@ -158,23 +173,31 @@ void with_current_frame( frame_sender func, void *arg)
     }
     (*func)(c,arg);
 
-    if ( pthread_rwlock_unlock( &currentFrame.lock)) {
-      fatal_f("Failed to release current frame read lock: %s\n", strerror(errno));
-    }
+    pthread_cleanup_pop( 1);
     log_f("read unlocked frame\n");
+}
+
+static void with_next_frame_cleanup( void *arg)
+{
+    pthread_mutex_unlock( &currentFrame.mutex);
 }
 
 void with_next_frame( frame_sender func, void *arg)
 {
     int s;
+    int oldState;
 
     log_f("with_next_frame\n");
+    pthread_setcancelstate( PTHREAD_CANCEL_DISABLE, &oldState);
+    pthread_cleanup_push( with_next_frame_cleanup, 0);
     pthread_mutex_lock( &currentFrame.mutex);
+    pthread_setcancelstate( oldState,0);
+
     s = currentFrame.serial;
     while( currentFrame.serial == s) {
 	pthread_cond_wait( &currentFrame.cond, &currentFrame.mutex);
     }
-    pthread_mutex_unlock( &currentFrame.mutex);
+    pthread_cleanup_pop( 1);
     with_current_frame( func, arg);
 }
 
