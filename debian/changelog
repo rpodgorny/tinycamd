@@ -1,0 +1,20 @@
+tinycamd (0.3) unstable; urgency=low
+
+  * Password protection.
+  * Simplify watchdogs.
+  * Add /setup.html .
+  * Integrate static files.
+  
+ -- Jim Studt <jim@studt.net>  Thu, 11 Nov 2010 15:25:52 -0600
+
+tinycamd (0.2) unstable; urgency=low
+
+  * Add persistent http 1.1 sessions.
+
+ -- Jim Studt <jim@studt.net>  Tue, 02 Nov 2010 15:28:26 -0500
+
+tinycamd (0.1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Jim Studt <jim@studt.net>  Tue, 26 Oct 2010 13:30:23 -0500

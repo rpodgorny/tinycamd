@@ -22,7 +22,7 @@ gprof-helper.so:
 	$(CC) -shared -fPIC util/gprof-helper.c -o gprof-helper.so -lpthread -ldl
 
 clean : 
-	- rm -f *.[do] *~ tinycamd  *.gcov *.gcda *.gcno gmon.out
+	- rm -f *.[do] *~ tinycamd  *.gcov *.gcda *.gcno gmon.out html.c
 
 install : 
 	mkdir -p $(DESTDIR)/usr/bin/
