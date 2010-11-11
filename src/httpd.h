@@ -13,4 +13,6 @@ void HTTPD_Send_Body( HTTPD_Request req, const void *data, int length);
 void HTTPD_Send_Body_Chunk(HTTPD_Request req, const void *data, int length);
 void HTTPD_Push( HTTPD_Request req);
 
+const char *HTTPD_Get_Authorization( HTTPD_Request req);  // NULL if none given
+
 #endif

@@ -52,7 +52,7 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
     int cid, mindex;
     int used = 0;
 
-    log_f("buf=%08p, size=%d\n", buf, size);
+    //log_f("buf=%08p, size=%d\n", buf, size);
     used += snprintf( buf+used, size-used, "<?xml version=\"1.0\" ?>\n");
     used += snprintf( buf+used, size-used, "<controls>\n");
 
@@ -79,7 +79,7 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 		.id = queryctrl.id,
 	    };
 
-	    log_f("ctrl: %d(%s) type:%d\n", cid, queryctrl.name,queryctrl.type);
+	    //log_f("ctrl: %d(%s) type:%d\n", cid, queryctrl.name,queryctrl.type);
 	    if (queryctrl.flags & V4L2_CTRL_FLAG_DISABLED) continue;
 
 	    if ( xioctl( fd, VIDIOC_G_CTRL, &con)) {
@@ -136,7 +136,7 @@ int list_controls( int fd, char *buf, int size, int cidArg, int valArg)
 
 
     used += snprintf( buf+used, size-used, "</controls>\n");
-    log_f("%d %s\n", used, buf);
+    //log_f("%d %s\n", used, buf);
     return used;
 }
 

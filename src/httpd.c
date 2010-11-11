@@ -14,6 +14,7 @@
 #include <semaphore.h>
 #include <signal.h>
 #include <time.h>
+#include <ctype.h>
 
 #include "httpd.h"
 #include "logging.h"
@@ -46,6 +47,7 @@ struct http_request {
     int socket;
     int sentStatus;
     void (*func)(HTTPD_Request req, const char *method, const char *url);
+    char authorization[1024];
 };
 
 const int noKeepAlive = 0;
@@ -158,6 +160,54 @@ static char *sgets(char *sbuf, int size, int sock)
 }
 
 
+static int base64decode( char *out, int outLen, char *in)
+{
+    int i24 = 0;
+    int n = 0;
+    int pad = 0;
+
+    if ( outLen < 1) return 1;  // error, we can't null terminate
+
+    for ( ; *in && outLen>1; in++) {
+	int c=0;
+
+	if (isupper(*in)) c = *in - 'A';
+	else if (islower(*in)) c = *in - 'a' + 26;
+	else if (isdigit(*in)) c = *in - '0' + 26 + 26;
+	else if ( *in == '+') c = 62;
+	else if ( *in == '-') c = 62;
+	else if ( *in == '/') c = 63;
+	else if ( *in == '_') c = 63;
+	else if ( *in == '=') {
+	    c = 0;
+	    pad++;
+	}
+
+	i24 = (i24 << 6) + c;
+	n++;
+
+	if ( n == 4) {
+	    if ( outLen > 1) {
+		*out++ = ((i24 >> 16)&0xff);
+		outLen--;
+	    }
+	    if ( outLen > 1 && pad < 2) {
+		*out++ = ((i24 >> 8)&0xff);
+		outLen--;
+	    }
+	    if ( outLen > 1 && pad < 1) {
+		*out++ = (i24&0xff);
+		outLen--;
+	    }
+	    i24 = 0;
+	    n = 0;
+	    if ( pad != 0) break;
+	}
+    }
+    *out = 0;
+    return 0;
+}
+
 //
 // The main request loop, one per connection.
 // This is wrapped in cleanup code by request().
@@ -177,6 +227,11 @@ static void *request_loop( HTTPD_Request req)
 	req->sentStatus = 0;
 
 	//
+	// Clear our authorization string
+	//
+	req->authorization[0] = 0;
+
+	//
 	// Get the Request
 	//
 	if ( !sgets(line,sizeof(line)-1, req->socket)) {
@@ -194,11 +249,18 @@ static void *request_loop( HTTPD_Request req)
 	// Get the headers
 	//
 	for (;;) {
+	    char buf[1024];
+
 	    if ( !sgets(line,sizeof(line)-1, req->socket)) {
 		log_f("Failed to read request line\n");
 		return NULL;
 	    }
 	    if ( line[0] == '\n' || line[0] == '\r') break;
+
+	    if ( sscanf( line, "Authorization: Basic %1023s", buf) == 1) {
+		base64decode( req->authorization, sizeof( req->authorization), buf);
+		log_f("Authenticate: Basic %s\n", req->authorization);
+	    }
 	    //log_f("Header: %s", line);
 	}
     
@@ -426,5 +488,12 @@ void HTTPD_Send_Body(HTTPD_Request req, const void *data, int length)
     Send_Buffer( req, buf, strlen(buf));
 
     Send_Buffer(req, data, length);
+}
+
+
+const char *HTTPD_Get_Authorization( HTTPD_Request req)
+{
+    if ( req->authorization[0] == 0) return NULL;
+    else return req->authorization;
 }
 

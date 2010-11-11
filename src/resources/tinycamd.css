@@ -1,0 +1,47 @@
+HTML {
+  background: hsl(240,80%,10%);
+}
+
+BODY {
+  margin: 1em auto;
+  padding: 0;
+}
+
+DIV#pictureframe {
+  margin: 0 auto;
+}
+
+INPUT#refresh {
+  width: 100px;
+}
+INPUT.on {
+  background: hsla(120,90%,75%,0.6);
+}
+INPUT.off {
+  background: hsla(0,70%,75%,0.6);
+}
+
+IMG#picture {
+  display: block;
+  margin: 0 auto;
+}
+
+TABLE#controls {
+  display: block;
+  margin: 0 auto;
+  width: 480px;
+  background: hsla(0,0%,100%,0.75);
+  padding: 0 1em;
+}
+
+TABLE#controls TH {
+  text-align: right;
+  font-weight: normal;
+  font-family: sans-serif;
+}
+
+PRE#log {
+  margin: 2em;
+  background: white;
+  color: black;
+}

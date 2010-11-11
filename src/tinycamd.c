@@ -196,6 +196,36 @@ static void do_video_call( HTTPD_Request req, video_action action, int cid, int 
     HTTPD_Send_Body( req, buf, strlen(buf));
 }
 
+static int demand_authorization(HTTPD_Request req)
+{
+    HTTPD_Send_Status( req, 401, "Authorization Required");
+    HTTPD_Add_Header( req, "WWW-Authenticate: Basic realm=\"tinycamd\"");
+    HTTPD_Send_Body(req, "login required", 14);
+    return 0;
+}
+
+static int check_password( HTTPD_Request req, int setup) {
+
+    if ( setup ) {
+	if ( !setup_password) return 1;
+    } else {
+	if ( !setup_password && !password) return 1;
+    }
+
+    {
+	const char *auth = HTTPD_Get_Authorization(req);
+
+	if ( !auth) return demand_authorization(req);
+
+	// a setup_password will do anything, if we have it.
+	if ( setup_password && strcmp( auth, setup_password) == 0) return 1;
+	if ( setup) return demand_authorization(req);
+
+	if ( password && strcmp( auth, password)==0) return 1;
+    }
+    return demand_authorization(req);
+}
+
 static void handle_requests(HTTPD_Request req, const char *method, const char *rawUrl)
 {
   int cid,val;
@@ -211,8 +241,10 @@ static void handle_requests(HTTPD_Request req, const char *method, const char *r
   if ( strcmp(url,"/status")==0) {
     do_status_request(req);
   } else if ( strcmp(url,"/setup.html")==0) {
-      HTTPD_Add_Header( req, "Content-type: text/html");
-      HTTPD_Send_Body(req, setup_html,setup_html_size);
+      if ( check_password(req, 1)) {
+	  HTTPD_Add_Header( req, "Content-type: text/html");
+	  HTTPD_Send_Body(req, setup_html,setup_html_size);
+      }
   } else if ( strcmp(url,"/tinycamd.js")==0) {
       HTTPD_Add_Header( req, "Content-type: text/javascript; charset=utf8");
       HTTPD_Send_Body(req, tinycamd_js,tinycamd_js_size);
@@ -226,11 +258,11 @@ static void handle_requests(HTTPD_Request req, const char *method, const char *r
   } else if ( strcmp(url,"/controls")==0) {
     do_video_call( req, list_controls,0,0);
   } else if ( sscanf(url,"/set?%d=%d",&cid,&val)==2 ) {
-    do_video_call( req, set_control,cid,val);
+    if ( check_password(req,1)) do_video_call( req, set_control,cid,val);
   } else if ( strcmp(url,"/")==0 ||
 	      strcmp( url, "/image.jpg") == 0 ||
 	      strncmp( url, "/image.jpg?", 11) == 0) {
-    with_current_frame( &put_single_image, req);
+      if ( check_password(req, 0)) with_current_frame( &put_single_image, req);
   } else {
     HTTPD_Send_Status( req, 404, "Not Found");
     HTTPD_Send_Body( req, "404 - Not found", 15);

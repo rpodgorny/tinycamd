@@ -14,6 +14,8 @@ char *url_prefix = "";
 char *pid_file = 0;
 char *setuid_to = 0;
 char *chroot_to = 0;
+char *password = 0;
+char *setup_password = 0;
 int video_width = 640;
 int video_height = 480;
 int verbose = 0;
@@ -45,6 +47,8 @@ long_options [] = {
 	{ "pid",        required_argument,      NULL,           'I' },
 	{ "uid",        required_argument,      NULL,           'i' },
 	{ "chroot",     required_argument,      NULL,           'C' },
+	{ "password",   required_argument,      NULL,           0 },
+	{ "setup-password", required_argument,  NULL,           0 },
         { 0, 0, 0, 0 }
 };
 
@@ -71,6 +75,8 @@ static void usage(FILE *fp, int argc, char **argv)
 	     "-I | --pid               File to write the pid for daemon mode\n"
 	     "-i | --uid               Change to this uid after opening camera and port\n"
 	     "-C | --chroot            Chroot to this path after initializing\n"
+	     "--password               Authorization to see images, e.g. user:password\n"
+	     "--setup-password         Authorization to control camera.\n"
 	     "",
 	     argv[0]);
 }
@@ -87,6 +93,15 @@ void do_options(int argc, char **argv)
 
 	switch (c) {
 	  case 0: /* getopt_long() flag */
+	    if ( strcmp( long_options[index].name, "password")==0) {
+		int len = strlen(optarg);
+		password = strdup(optarg);
+		strncpy( optarg, "user:pw", len); // obscure for 'ps' (and we may depend on previous NUL)
+	    } else if ( strcmp( long_options[index].name, "setup-password")==0) {
+		int len = strlen(optarg);
+		setup_password = strdup(optarg);
+		strncpy( optarg, "user:pw", len); // obscure for 'ps' (and we may depend on previous NUL)
+	    }
 	    break;
 	  case 'd':
 	    videodev_name = optarg;

@@ -21,6 +21,9 @@ extern char *url_prefix;
 extern char *pid_file;
 extern char *setuid_to;
 extern char *chroot_to;
+extern char *password;
+extern char *setup_password;
+
 extern int verbose;
 extern int daemon_mode;
 
