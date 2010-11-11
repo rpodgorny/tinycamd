@@ -3,7 +3,8 @@ tinycamd (0.3) unstable; urgency=low
   * Password protection.
   * Simplify watchdogs.
   * Add /setup.html .
-
+  * Integrate static files.
+  
  -- Jim Studt <jim@studt.net>  Thu, 11 Nov 2010 15:25:52 -0600
 
 tinycamd (0.2) unstable; urgency=low
