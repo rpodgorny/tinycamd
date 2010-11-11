@@ -32,7 +32,7 @@ SCRIPTNAME=/etc/init.d/$NAME
 #
 # get this after /etc/default is read
 #
-DAEMON_ARGS="-D -i nobody -C /home/jim/coding/tinycamd -I $PIDFILE $TINYCAMD_OPTS"
+DAEMON_ARGS="--daemon --uid nobody --chroot /var/lib/tinycamd --pid $PIDFILE $TINYCAMD_OPTS"
 
 # Load the VERBOSE setting and other rcS variables
 . /lib/init/vars.sh
