@@ -1,9 +1,0 @@
-tinycamd for Debian
--------------------
-
-You must edit /etc/defaults/tinycamd to allow the daemon to start.
-
-The /etc/init.d/tinycamd shipped with Debian only supports a single
-camera per host.  The underlying program has no such limit.
-
- -- Jim Studt <jim@studt.net>  Tue, 26 Oct 2010 13:30:23 -0500
