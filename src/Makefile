@@ -6,8 +6,16 @@ LDLIBS += -ljpeg -lpthread -lrt
 all : tinycamd 
 
 
-tinycamd : tinycamd.o options.o device.o frame.o controls.o httpd.o logging.o probe.o
+tinycamd : tinycamd.o options.o device.o frame.o controls.o httpd.o logging.o probe.o html.o
 	$(LINK.c) $^ $(LOADLIBES) $(LDLIBS) -o $@
+
+util/bintoc : util/bintoc.c
+	$(CC) $^ -o $@
+
+html.c : util/bintoc resources/setup.html resources/tinycamd.js resources/tinycamd.css
+	util/bintoc setup_html=resources/setup.html \
+		    tinycamd_js=resources/tinycamd.js \
+		    tinycamd_css=resources/tinycamd.css > $@	
 
 # to profile, LD_PRELOAD=./gprof-helper.so ./tinycamd ....
 gprof-helper.so:

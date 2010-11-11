@@ -19,6 +19,13 @@
 
 #define MAXFRAME 60
 
+extern char setup_html[];
+extern int setup_html_size;
+extern char tinycamd_js[];
+extern int tinycamd_js_size;
+extern char tinycamd_css[];
+extern int tinycamd_css_size;
+
 static void do_status_request( HTTPD_Request req)
 {
   const char *status = "<html><head><title>Status</title></head>"
@@ -203,6 +210,15 @@ static void handle_requests(HTTPD_Request req, const char *method, const char *r
   log_f("Request: %s %s => %s\n", method, rawUrl, url);
   if ( strcmp(url,"/status")==0) {
     do_status_request(req);
+  } else if ( strcmp(url,"/setup.html")==0) {
+      HTTPD_Add_Header( req, "Content-type: text/html");
+      HTTPD_Send_Body(req, setup_html,setup_html_size);
+  } else if ( strcmp(url,"/tinycamd.js")==0) {
+      HTTPD_Add_Header( req, "Content-type: text/javascript; charset=utf8");
+      HTTPD_Send_Body(req, tinycamd_js,tinycamd_js_size);
+  } else if ( strcmp(url,"/tinycamd.css")==0) {
+      HTTPD_Add_Header( req, "Content-type: text/css");
+      HTTPD_Send_Body(req, tinycamd_css,tinycamd_css_size);
 #if 0
   } else if ( strcmp(url,"/image.replace")==0) {
     stream_image(req);
