@@ -12,7 +12,6 @@
 #include <errno.h>
 #include <jpeglib.h>
 #include <pwd.h>
-#include <mcheck.h>
 
 #include "tinycamd.h"
 #include "httpd.h"
