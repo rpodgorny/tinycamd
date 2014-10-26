@@ -1,0 +1,5 @@
+*.d
+*.o
+html.c
+tinycamd
+util/bintoc
