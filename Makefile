@@ -1,5 +1,6 @@
 
-CFLAGS := -Wall -Werror -O2 -MMD $(CFLAGS) $(COPTS)
+CFLAGS := -Wall -O2 -MMD $(CFLAGS) $(COPTS)
+#CFLAGS := -Wall -Werror -O2 -MMD $(CFLAGS) $(COPTS)
 LDLIBS += -ljpeg -lpthread -lrt
 HOSTCC ?= cc
 
