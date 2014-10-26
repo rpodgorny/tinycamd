@@ -439,6 +439,8 @@ void init_device (void)
 	  fatal_f("Unable to set requested pixelformat.\n");
 	}
 
+	comp.quality = quality;
+	/*
 	if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) {
 	    if ( errno != EINVAL) errno_exit("VIDIOC_G_JPEGCOMP");
 	    log_f("driver does not support VIDIOC_G_JPEGCOMP\n");
@@ -449,6 +451,7 @@ void init_device (void)
 	    if (-1 == xioctl( videodev, VIDIOC_G_JPEGCOMP, &comp)) errno_exit("VIDIOC_G_JPEGCOMP");
 	    log_f("jpegcomp quality came out at %d\n", comp.quality);
 	}
+	*/
 
 	if (-1 == xioctl( videodev, VIDIOC_G_PARM, &strm)) errno_exit("VIDIOC_G_PARM");
 	strm.parm.capture.timeperframe.numerator = 1;
